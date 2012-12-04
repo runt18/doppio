@@ -29,8 +29,8 @@ internal2external =
   V: 'void'
   Z: 'boolean'
 
-external2internal = {}
-external2internal[v]=k for k,v of internal2external
+root.external2internal = {}
+root.external2internal[v]=k for k,v of internal2external
 
 # consumes characters from the array until it finishes reading one full type.
 root.carr2type = (carr) ->
@@ -76,7 +76,7 @@ class root.PrimitiveType extends root.Type
     @name = name
     type_cache[name] = @
 
-  valueOf: -> external2internal[@name]
+  valueOf: -> root.external2internal[@name]
 
   toExternalString: -> @name
 
