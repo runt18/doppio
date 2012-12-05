@@ -15,14 +15,15 @@ assert_type = (obj, type) ->
   throw new Error "Expected type #{type}, got #{obj.type}" unless type is obj.type
 
 class Signature
-  regex = /^(\w+)\s+([\w\d$]+)\s*\((.*)\)/
+  regex = /^(static\s+)?(\w+)\s+([\w\d$]+)\s*\((.*)\)/
 
   constructor: (@package_name, @class_name, sig) ->
     groups = regex.exec sig
-    @ret_type = groups[1]
-    @name = groups[2]
+    @static = groups[1]?
+    @ret_type = groups[2]
+    @name = groups[3]
     @args =
-      for arg in groups[3].split /,\s+/
+      for arg in groups[4].split /,\s+/
         [type, name] = arg.split /\s+/
         { type: type, name: name }
 
@@ -83,6 +84,7 @@ nodeVisitor =
           prop.key.value = sig.toString()
           assert_type prop.value, 'FunctionExpression'
           prop.value.params = [type: 'Identifier', name: 'rs']
+          prop.value.params.push {type: 'Identifier', name: '_this'} unless sig.static
           Array::push.apply(prop.value.params,
             {type:'Identifier',name:java_arg.name} for java_arg in sig.args)
         return obj
