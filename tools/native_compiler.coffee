@@ -11,39 +11,33 @@ jvm = require '../src/jvm'
 
 # AST traversal helpers
 
-# even though this makes clones of the object before passing them to the visitor,
-# the visitor can still modify the original tree if it modifies descendents of
-# the current node. we should pick full mutability, or full copying...
 traverse = (object, visitor) ->
-  newObject =
-    if visitor[object.type]
-      visitor[object.type].call(null, _.clone(object))
-    else if Array.isArray object
-      []
-    else
-      _.clone(object)
+  if visitor[object.type]?
+    object = visitor[object.type].call(null, object)
+    return unless object?
 
-  complete = true # are all subexpressions present?
-
-  for key of object
-    if (object.hasOwnProperty(key) and key not in ['parent', 'nodeName'])
+  unless Array.isArray object
+    complete = true
+    for key in Object.keys object
       child = object[key]
-      if (typeof child == 'object' && child != null)
-        child.parent = object
-        child.nodeName = key
-        newChild = traverse(child, visitor)
-        if newChild?
-          if Array.isArray newObject
-            newObject.push newChild
-          else
-            newObject?[key] = newChild
-        else unless Array.isArray newObject
-          complete = false
-
-  return if complete then newObject else null
+      if typeof child == 'object' && child != null
+        object[key] = traverse(child, visitor)
+        complete &= object[key]?
+    if complete then object else null
+  else
+    new_object = []
+    for i in [0...object.length] by 1
+      child = object[i]
+      if typeof child == 'object' && child != null
+        new_child = traverse(child, visitor)
+        if new_child?
+          new_object.push new_child
+    new_object
 
 assert_node_type = (obj, type) ->
   throw new Error "Expected type #{type}, got #{obj.type}" unless type is obj.type
+
+ident_or_lit_value = (node) -> node.value ? node.name
 
 # Resolving / typechecking code
 
@@ -96,9 +90,12 @@ class Signature
     @ret_type = groups[2]
     @name = groups[3]
     @args =
-      for arg in groups[4].split /,\s+/
-        [type, name] = arg.split /\s+/
-        { type: type, name: name }
+      if groups[4] is ''
+        []
+      else
+        for arg in groups[4].split /,\s+/
+          [type, name] = arg.split /\s+/
+          { type: type, name: name }
 
   toFullString: ->
     "#{@full_class_name}::#{@toString()}"
@@ -152,6 +149,68 @@ nodeVisitor =
         arg.value = (convert_type arg.value).toClassString()
         obj.arguments.unshift {type: 'Identifier', name: 'rs'}
         return obj
+      when '_static'
+        arg = obj.arguments[0]
+        if arg.type is 'AssignmentExpression'
+          obj.callee.name = 'rs.static_put'
+          cls_name = arg.left.object.name
+          full_name = (ClassResolver.resolve cls_name).name
+          obj.arguments[0] = {
+            type: 'ObjectExpression'
+            properties: [
+              {
+                type: 'Property'
+                key: { type: 'Identifier', name: 'class' }
+                value: { type: 'Literal', value: full_name }
+                kind: 'init'
+              }
+              {
+                type: 'Property'
+                key: { type: 'Identifier', name: 'name' }
+                value: { type: 'Literal', value: ident_or_lit_value arg.left.property }
+                kind: 'init'
+              }
+            ]
+          }
+          return {
+            type: 'SequenceExpression'
+            expressions: [
+              {
+                type: 'CallExpression'
+                callee: {
+                  type: 'Identifier'
+                  name: 'rs.push'
+                }
+                arguments: [ arg.right ]
+              }
+              obj
+            ]
+          }
+        else
+          assert_node_type arg, 'MemberExpression'
+          cls_name = arg.object.name
+          full_name = (ClassResolver.resolve cls_name).name
+          obj.callee.name = 'rs.static_get'
+          obj.arguments = [
+            {
+              type: 'ObjectExpression'
+              properties: [
+                {
+                  type: 'Property'
+                  key: { type: 'Identifier', name: 'class' }
+                  value: { type: 'Literal', value: full_name }
+                  kind: 'init'
+                }
+                {
+                  type: 'Property'
+                  key: { type: 'Identifier', name: 'name' }
+                  value: { type: 'Literal', value: ident_or_lit_value arg.property }
+                  kind: 'init'
+                }
+              ]
+            }
+          ]
+          return obj
       else
         return obj
     return
