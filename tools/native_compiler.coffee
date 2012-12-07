@@ -144,10 +144,14 @@ nodeVisitor =
         arg.value = (convert_type arg.value).toString()
         return obj
       when '_throw'
-        obj.callee.name = 'exceptions.java_throw'
         arg = obj.arguments[0]
-        arg.value = (convert_type arg.value).toClassString()
-        obj.arguments.unshift {type: 'Identifier', name: 'rs'}
+        assert_node_type arg, 'CallExpression'
+        obj.callee.name = 'exceptions.java_throw'
+        obj.arguments = [
+          {type: 'Identifier', name: 'rs'}
+          {type: 'Literal', value: (convert_type arg.callee.name).toClassString()}
+        ]
+        Array::push.apply obj.arguments, arg.arguments
         return obj
       when '_static'
         arg = obj.arguments[0]
