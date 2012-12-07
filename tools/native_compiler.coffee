@@ -34,8 +34,14 @@ traverse = (object, visitor) ->
           new_object.push new_child
     new_object
 
+class CompileError
+  constructor: (@node, @msg) ->
+    @stack = (new Error).stack.split('\n')[2..].join '\n'
+
+  toString: -> "Line #{@node.loc?.start.line}: #{@msg}\n#{@stack}"
+
 assert_node_type = (obj, type) ->
-  throw new Error "Expected type #{type}, got #{obj.type}" unless type is obj.type
+  throw new CompileError obj, "Expected type #{type}, got #{obj.type}" unless type is obj.type
 
 ident_or_lit_value = (node) -> node.value ? node.name
 
@@ -128,9 +134,10 @@ nodeVisitor =
             msg = "Could not find method #{sig.toFullString()}."
             if candidate_sigs.length > 0
               msg += " Did you mean #{candidate_sigs.join(", ")}?"
-            throw new Error msg
+            throw new CompileError prop, msg
           # cast the flag to a boolean
-          (!!m.access_flags.static) == sig.static || throw new Error "Static flag mismatch for method #{sig.toFullString()}"
+          unless (!!m.access_flags.static) == sig.static
+            throw new CompileError prop, "Static flag mismatch for method #{sig.toFullString()}"
           prop.key.value = sig.toFullString()
           assert_node_type prop.value, 'FunctionExpression'
           prop.value.params = [type: 'Identifier', name: 'rs']
@@ -221,5 +228,5 @@ nodeVisitor =
 
 if module? and require?.main == module
   {argv} = require 'optimist'
-  tree = traverse(esprima.parse(fs.readFileSync argv._[0]), nodeVisitor)
+  tree = traverse(esprima.parse((fs.readFileSync argv._[0]), loc:true), nodeVisitor)
   console.log escodegen.generate(tree)
