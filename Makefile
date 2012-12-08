@@ -229,5 +229,13 @@ symlinks:
 	ln -sfn $(DOPPIO_DIR)/classes $(BUILD_DIR)/classes
 	ln -sfn $(DOPPIO_DIR)/vendor $(BUILD_DIR)/vendor
 
+NATIVES_COFFEE = $(wildcard src/natives/*.coffee)
+
+src/natives/%.js: src/natives/%.coffee
+	coffee -c --bare $?
+
+src/natives.js: $(NATIVES_COFFEE:.coffee=.js)
+	tools/native_compiler.coffee $^ > src/natives.js
+
 # Never delete these files in the event of a failure.
 .SECONDARY: $(CLASSES) $(DISASMS) $(RUNOUTS) $(DEMO_CLASSES) $(UTIL_CLASSES)
