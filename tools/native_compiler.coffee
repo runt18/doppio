@@ -158,9 +158,13 @@ class NodeVisitor
           Array::push.apply methods, arg.right.properties
           return obj
         when '_new'
-          obj.callee.name = 'rs.init_object'
           arg = obj.arguments[0]
-          arg.value = (convert_type arg.value, resolver).toString()
+          obj_type = convert_type arg.value, resolver
+          arg.value = (obj_type).toString()
+          if obj_type instanceof types.ArrayType
+            obj.callee.name = 'rs.init_array'
+          else
+            obj.callee.name = 'rs.init_object'
           return obj
         when '_throw'
           arg = obj.arguments[0]
