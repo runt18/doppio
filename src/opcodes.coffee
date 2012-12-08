@@ -4,7 +4,7 @@ util = require './util'
 types = require './types'
 {java_throw,ReturnException,JavaException} = require './exceptions'
 {c2t} = types
-{JavaArray} = require './java_object'
+{JavaObject,JavaArray} = require './java_object'
 
 "use strict"
 
@@ -46,7 +46,11 @@ class root.InvokeOpcode extends root.Opcode
     @method_spec_ref = code_array.get_uint(2)
     @method_spec = constant_pool.get(@method_spec_ref).deref()
 
-  execute: (rs) -> rs.method_lookup(@method_spec).run(rs)
+  execute: (rs) ->
+    my_sf = rs.curr_frame()
+    if rs.method_lookup(@method_spec).setup_stack(rs)?
+      my_sf.pc += 1 + @byte_count
+      throw ReturnException
 
 class root.DynInvokeOpcode extends root.InvokeOpcode
   constructor: (name, params) ->
@@ -65,16 +69,13 @@ class root.DynInvokeOpcode extends root.InvokeOpcode
     @cache = Object.create null
 
   execute: (rs) ->
-    unless rs.meta_stack().resuming_stack?
-      stack = rs.curr_frame().stack
-      obj = stack[stack.length - @count]
-      cls = rs.check_null(obj).type.toClassString()
-      rs.method_lookup(class: cls, sig: @method_spec.sig).run(rs)
-    else
-      rs.meta_stack().resuming_stack++
-      m = rs.curr_frame().method
-      rs.meta_stack().resuming_stack--
-      m.run(rs)
+    my_sf = rs.curr_frame()
+    stack = my_sf.stack
+    obj = stack[stack.length - @count]
+    cls = rs.check_null(obj).type.toClassString()
+    if rs.method_lookup(class: cls, sig: @method_spec.sig).setup_stack(rs)?
+      my_sf.pc += 1 + @byte_count
+      throw ReturnException
 
   get_param_word_size = (spec) ->
     state = 'name'
@@ -299,7 +300,7 @@ class root.MultiArrayOpcode extends root.Opcode
         array = (default_val for i in [0...len] by 1)
       else
         array = (init_arr(curr_dim+1) for i in [0...len] by 1)
-      new JavaArray type, rs, array
+      new JavaArray rs, type, array
     rs.push init_arr 0
     return
 
@@ -522,16 +523,15 @@ root.opcodes = {
   179: new root.FieldOpcode 'putstatic', {execute: (rs)-> rs.static_put @field_spec }
   180: new root.FieldOpcode 'getfield', { execute: (rs) ->
     field = rs.field_lookup(@field_spec)
-    name = @field_spec.name
-    cls = field.class_type.toClassString()
+    name = field.class_type.toClassString() + '/' + @field_spec.name
     new_execute =
       if @field_spec.type not in ['J','D']
         (rs) ->
-          val = rs.pop().get_field rs, name, cls
+          val = rs.pop().get_field rs, name
           rs.push val
       else
         (rs) ->
-          val = rs.pop().get_field rs, name, cls
+          val = rs.pop().get_field rs, name
           rs.push2 val, null
     new_execute.call(@, rs)
     @execute = new_execute
@@ -539,17 +539,17 @@ root.opcodes = {
   }
   181: new root.FieldOpcode 'putfield', { execute: (rs) ->
     field = rs.field_lookup(@field_spec)
-    name = @field_spec.name
+    name = field.class_type.toClassString() + '/' + @field_spec.name
     cls = field.class_type.toClassString()
     new_execute =
       if @field_spec.type not in ['J','D']
         (rs) ->
           val = rs.pop()
-          rs.pop().set_field @, name, val, cls
+          rs.pop().set_field @, name, val
       else
         (rs) ->
           val =  rs.pop2()
-          rs.pop().set_field @, name, val, cls
+          rs.pop().set_field @, name, val
     new_execute.call(@, rs)
     @execute = new_execute
     return
@@ -558,7 +558,13 @@ root.opcodes = {
   183: new root.InvokeOpcode 'invokespecial'
   184: new root.InvokeOpcode 'invokestatic'
   185: new root.DynInvokeOpcode 'invokeinterface'
-  187: new root.ClassOpcode 'new', { execute: (rs) -> rs.push rs.init_object @class }
+  187: new root.ClassOpcode 'new', { execute: (rs) ->
+    @type = c2t(@class)
+    @cls = rs.class_lookup @type
+    rs.push new JavaObject(rs, @type, @cls)
+    # Self-modify; cache the class file lookup.
+    @execute = (rs) -> rs.push new JavaObject(rs, @type, @cls)
+  }
   188: new root.NewArrayOpcode 'newarray', { execute: (rs) -> rs.push rs.heap_newarray @element_type, rs.pop() }
   189: new root.ClassOpcode 'anewarray', { execute: (rs) -> rs.push rs.heap_newarray "L#{@class};", rs.pop() }
   190: new root.Opcode 'arraylength', { execute: (rs) -> rs.push rs.check_null(rs.pop()).array.length }
@@ -579,6 +585,8 @@ root.opcodes = {
       if locked_thread is rs.curr_thread
         rs.lock_counts[monitor]++  # increment lock counter, to only unlock at zero
       else
+        rs.inc_pc(1)
+        rs.meta_stack().push {}  # dummy, to be popped
         rs.wait monitor
     else  # this lock not held by any thread
       rs.lock_refs[monitor] = rs.curr_thread
@@ -586,7 +594,8 @@ root.opcodes = {
   }
   195: new root.Opcode 'monitorexit',  { execute: (rs)->
     monitor = rs.pop()
-    if (locked_thread = rs.lock_refs[monitor])? and locked_thread is rs.curr_thread
+    return unless (locked_thread = rs.lock_refs[monitor])?
+    if locked_thread is rs.curr_thread
       rs.lock_counts[monitor]--
       if rs.lock_counts[monitor] == 0
         delete rs.lock_refs[monitor]

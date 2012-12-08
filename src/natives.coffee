@@ -5,7 +5,7 @@ gLong = require '../vendor/gLong.js'
 util = require './util'
 types = require './types'
 runtime = require './runtime'
-{thread_name,JavaArray} = require './java_object'
+{thread_name,JavaObject,JavaArray} = require './java_object'
 exceptions = require './exceptions'
 {log,debug,error} = require './logging'
 path = node?.path ? require 'path'
@@ -54,8 +54,8 @@ trapped_methods =
   java:
     lang:
       ref:
-        Reference$ReferenceHandler: [
-          o 'run()V', (rs) -> # NOP, because don't do our own GC
+        Reference: [
+          o '<clinit>()V', (rs) -> # NOP, because we don't do our own GC and also this starts a thread?!?!?!
         ]
       System: [
         o 'loadLibrary(L!/!/String;)V', (rs) -> # NOP, because we don't support loading external libraries
@@ -69,8 +69,8 @@ trapped_methods =
       Throwable: [
         o 'fillInStackTrace()L!/!/!;', (rs, _this) ->
             stack = []
-            strace = rs.init_object "[Ljava/lang/StackTraceElement;", stack
-            _this.set_field rs, 'stackTrace', strace
+            strace = rs.init_array "[Ljava/lang/StackTraceElement;", stack
+            _this.set_field rs, 'java/lang/Throwable/stackTrace', strace
             # we don't want to include the stack frames that were created by
             # the construction of this exception
             cstack = rs.meta_stack()._cs.slice(1,-1)
@@ -88,10 +88,10 @@ trapped_methods =
                 ln = util.last(row.line_number for i,row of line_nums when row.start_pc <= sf.pc)
               ln ?= -1
               stack.push rs.init_object "java/lang/StackTraceElement", {
-                declaringClass: rs.init_string util.ext_classname cls.toClassString()
-                methodName: rs.init_string sf.method.name
-                fileName: rs.init_string source_file
-                lineNumber: ln
+                'java/lang/StackTraceElement/declaringClass': rs.init_string util.ext_classname cls.toClassString()
+                'java/lang/StackTraceElement/methodName': rs.init_string sf.method.name
+                'java/lang/StackTraceElement/fileName': rs.init_string source_file
+                'java/lang/StackTraceElement/lineNumber': ln
               }
             stack.reverse()
             _this
@@ -102,7 +102,7 @@ trapped_methods =
           AtomicInteger: [
             o '<clinit>()V', (rs) -> #NOP
             o 'compareAndSet(II)Z', (rs, _this, expect, update) ->
-                _this.set_field rs, 'value', update  # we don't need to compare, just set
+                _this.set_field rs, 'java/util/concurrent/atomic/AtomicInteger/value', update  # we don't need to compare, just set
                 true # always true, because we only have one thread
           ]
       Currency: [
@@ -119,10 +119,15 @@ trapped_methods =
         ]
 
 doPrivileged = (rs, action) ->
+  my_sf = rs.curr_frame()
   m = rs.method_lookup(class: action.type.toClassString(), sig: 'run()Ljava/lang/Object;')
   rs.push action unless m.access_flags.static
-  m.run(rs)
-  rs.pop()
+  m.setup_stack(rs)
+  my_sf.runner = ->
+    rv = rs.pop()
+    rs.meta_stack().pop()
+    rs.push rv
+  throw exceptions.ReturnException
 
 stat_file = (fname) ->
   try
@@ -183,7 +188,7 @@ write_to_file = (rs, _this, bytes, offset, len, append) ->
   if node?
     # For the browser implementation -- the DOM doesn't get repainted
     # unless we give the event loop a chance to spin.
-    rs.curr_frame().resume = -> # NOP
+    rs.curr_frame().runner = -> rs.meta_stack().pop()
     throw new exceptions.YieldIOException (cb) -> setTimeout(cb, 0)
 
 
@@ -199,18 +204,22 @@ native_methods =
             rs.init_string(_this.$type.toExternalString())
         o 'forName0(L!/!/String;ZL!/!/ClassLoader;)L!/!/!;', (rs, jvm_str, initialize, loader) ->
             type = c2t util.int_classname jvm_str.jvm2js_str()
-            if loader isnt null
-              rs.push2 loader, jvm_str
-              rs.method_lookup(
-                class: loader.type.toClassString(),
-                sig: 'loadClass(Ljava/lang/String;)Ljava/lang/Class;').run(rs)
-              rv = rs.pop()
-            else
+            if loader is null
               rv = rs.jclass_obj type, true
-
-            if initialize
-              rs.class_lookup type, true
-            rv
+              rs.class_lookup type, true if initialize
+              return rv
+            # user-defined classloader
+            my_sf = rs.curr_frame()
+            rs.push2 loader, jvm_str
+            rs.method_lookup(
+              class: loader.type.toClassString(),
+              sig: 'loadClass(Ljava/lang/String;)Ljava/lang/Class;').setup_stack(rs)
+            my_sf.runner = ->
+              rv = rs.pop()
+              rs.meta_stack().pop()
+              rs.push rv
+              rs.class_lookup type, true if initialize
+            throw exceptions.ReturnException
         o 'getComponentType()L!/!/!;', (rs, _this) ->
             type = _this.$type
             return null unless (type instanceof types.ArrayType)
@@ -239,34 +248,34 @@ native_methods =
         o 'getDeclaredFields0(Z)[Ljava/lang/reflect/Field;', (rs, _this, public_only) ->
             fields = _this.file.fields
             fields = (f for f in fields when f.access_flags.public) if public_only
-            rs.init_object('[Ljava/lang/reflect/Field;',(f.reflector(rs) for f in fields))
+            rs.init_array('[Ljava/lang/reflect/Field;',(f.reflector(rs) for f in fields))
         o 'getDeclaredMethods0(Z)[Ljava/lang/reflect/Method;', (rs, _this, public_only) ->
             methods = _this.file.methods
             methods = (m for sig, m of methods when sig[0] != '<' and (m.access_flags.public or not public_only))
-            rs.init_object('[Ljava/lang/reflect/Method;',(m.reflector(rs) for m in methods))
+            rs.init_array('[Ljava/lang/reflect/Method;',(m.reflector(rs) for m in methods))
         o 'getDeclaredConstructors0(Z)[Ljava/lang/reflect/Constructor;', (rs, _this, public_only) ->
             methods = _this.file.methods
             methods = (m for sig, m of methods when m.name is '<init>')
             methods = (m for m in methods when m.access_flags.public) if public_only
-            rs.init_object('[Ljava/lang/reflect/Constructor;',(m.reflector(rs,true) for m in methods))
+            rs.init_array('[Ljava/lang/reflect/Constructor;',(m.reflector(rs,true) for m in methods))
         o 'getInterfaces()[L!/!/!;', (rs, _this) ->
             cls = _this.file
             ifaces = (cls.constant_pool.get(i).deref() for i in cls.interfaces)
             ifaces = ((if util.is_string(i) then c2t(i) else i) for i in ifaces)
             iface_objs = (rs.jclass_obj(iface, true) for iface in ifaces)
-            rs.init_object('[Ljava/lang/Class;',iface_objs)
+            rs.init_array('[Ljava/lang/Class;',iface_objs)
         o 'getModifiers()I', (rs, _this) -> _this.file.access_byte
         o 'getRawAnnotations()[B', (rs, _this) ->
             cls = _this.file
             annotations = _.find(cls.attrs, (a) -> a.constructor.name == 'RuntimeVisibleAnnotations')
-            return new JavaArray c2t('[B'), rs, annotations.raw_bytes if annotations?
+            return new JavaArray rs, c2t('[B'), annotations.raw_bytes if annotations?
             for sig,m of cls.methods
               annotations = _.find(m.attrs, (a) -> a.constructor.name == 'RuntimeVisibleAnnotations')
-              return new JavaArray c2t('[B'), rs, annotations.raw_bytes if annotations?
+              return new JavaArray rs, c2t('[B'), annotations.raw_bytes if annotations?
             null
         o 'getConstantPool()Lsun/reflect/ConstantPool;', (rs, _this) ->
             cls = _this.file
-            rs.init_object 'sun/reflect/ConstantPool', {constantPoolOop: cls.constant_pool}
+            rs.init_object 'sun/reflect/ConstantPool', {'sun/reflect/ConstantPool/constantPoolOop': cls.constant_pool}
         o 'getEnclosingMethod0()[L!/!/Object;', (rs, _this) ->
             return null unless _this.$type instanceof types.ClassType
             cls = _this.file
@@ -277,7 +286,7 @@ native_methods =
             # - the immediately enclosing class (java/lang/Class)
             # - the immediately enclosing method or constructor's name (can be null). (String)
             # - the immediately enclosing method or constructor's descriptor (null iff name is). (String)
-            #new JavaArray c2t('[Ljava/lang/Object;'), rs, [null,null,null]
+            #new JavaArray rs, c2t('[Ljava/lang/Object;'), [null,null,null]
         o 'getDeclaringClass()L!/!/!;', (rs, _this) ->
             return null unless _this.$type instanceof types.ClassType
             cls = _this.file
@@ -294,7 +303,7 @@ native_methods =
               return rs.jclass_obj c2t(declaring_name), true
             return null
         o 'getDeclaredClasses0()[L!/!/!;', (rs, _this) ->
-            ret = new JavaArray c2t('[Ljava/lang/Class;'), rs, []
+            ret = new JavaArray rs, c2t('[Ljava/lang/Class;'), []
             return ret unless _this.$type instanceof types.ClassType
             cls = _this.file
             my_class = _this.$type.toClassString()
@@ -364,19 +373,21 @@ native_methods =
             _this.ref
         o 'clone()L!/!/!;', (rs, _this) -> _this.clone(rs)
         o 'notify()V', (rs, _this) ->
-            return unless rs.lock_refs[_this]?  # if it's not an active monitor, no one cares
-            unless rs.lock_refs[_this] is rs.curr_thread
-              owner = thread_name rs, rs.lock_refs[_this]
-              exceptions.java_throw rs, 'java/lang/IllegalMonitorStateException', "Thread '#{owner}' owns this monitor"
-            if rs.waiting_threads[_this]? and (t = rs.waiting_threads[_this].shift())?
-              rs.wait _this, t  # wait on _this, yield to t
-        o 'notifyAll()V', (rs, _this) ->  # exactly the same as notify(), for now
-            return unless rs.lock_refs[_this]?  # if it's not an active monitor, no one cares
-            unless rs.lock_refs[_this] is rs.curr_thread
-              owner = thread_name rs, rs.lock_refs[_this]
-              exceptions.java_throw rs, 'java/lang/IllegalMonitorStateException', "Thread '#{owner}' owns this monitor"
-            if rs.waiting_threads[_this]? and (t = rs.waiting_threads[_this].shift())?
-              rs.wait _this, t  # wait on _this, yield to t
+            debug "TE(notify): on lock *#{_this.ref}"
+            if (locker = rs.lock_refs[_this])?
+              if locker isnt rs.curr_thread
+                owner = thread_name rs, locker
+                exceptions.java_throw rs, 'java/lang/IllegalMonitorStateException', "Thread '#{owner}' owns this monitor"
+            if rs.waiting_threads[_this]?
+              rs.waiting_threads[_this].shift()
+        o 'notifyAll()V', (rs, _this) ->
+            debug "TE(notifyAll): on lock *#{_this.ref}"
+            if (locker = rs.lock_refs[_this])?
+              if locker isnt rs.curr_thread
+                owner = thread_name rs, locker
+                exceptions.java_throw rs, 'java/lang/IllegalMonitorStateException', "Thread '#{owner}' owns this monitor"
+            if rs.waiting_threads[_this]?
+              rs.waiting_threads[_this] = []
         o 'wait(J)V', (rs, _this, timeout) ->
             unless timeout is gLong.ZERO
               error "TODO(Object::wait): respect the timeout param (#{timeout})"
@@ -390,9 +401,9 @@ native_methods =
             env_arr = []
             # convert to an array of strings of the form [key, value, key, value ...]
             for k, v of process.env
-              env_arr.push new JavaArray c2t('[B'), rs, util.bytestr_to_array k
-              env_arr.push new JavaArray c2t('[B'), rs, util.bytestr_to_array v
-            new JavaArray c2t('[[B'), rs, env_arr
+              env_arr.push new JavaArray rs, c2t('[B'), util.bytestr_to_array k
+              env_arr.push new JavaArray rs, c2t('[B'), util.bytestr_to_array v
+            new JavaArray rs, c2t('[[B'), env_arr
       ]
       reflect:
         Array: [
@@ -410,7 +421,7 @@ native_methods =
         o 'gc()V', (rs) ->
             # No universal way of forcing browser to GC, so we yield in hopes
             # that the browser will use it as an opportunity to GC.
-            rs.curr_frame().resume = -> # NOP
+            rs.curr_frame().runner = -> rs.meta_stack().pop()
             throw new exceptions.YieldIOException (cb) -> setTimeout(cb, 0)
       ]
       Shutdown: [
@@ -492,77 +503,40 @@ native_methods =
             tmp = _this.$isInterrupted ? false
             _this.$isInterrupted = false if clear_flag
             tmp
+        o 'interrupt0()V', (rs, _this) ->
+            _this.$isInterrupted = true
+            debug "TE(interrupt0): interrupting #{thread_name rs, _this}"
+            new_thread_sf = util.last _this.$meta_stack._cs
+            new_thread_sf.runner = ->
+              new_thread_sf.method.run_manually (->
+                exceptions.java_throw rs, 'java/lang/InterruptedException', 'interrupt0 called'
+              ), rs, []
+            _this.$meta_stack.push {}  # dummy
+            rs.yield _this
         o 'start0()V', (rs, _this) ->
-            # bookkeeping
             _this.$isAlive = true
             _this.$meta_stack = new runtime.CallStack()
             rs.thread_pool.push _this
-            spawning_thread = rs.curr_thread
-            my_name = thread_name rs, _this
-            orig_name = thread_name rs, spawning_thread
-            method_to_run = null # this will be populated by the yield callback
-            rs.curr_frame().resume = -> # thread cleanup
-              debug "TE: deleting #{my_name} after resume"
+            old_thread_sf = rs.curr_frame()
+            debug "TE(start0): starting #{thread_name rs, _this} from #{thread_name rs, rs.curr_thread}"
+            rs.curr_thread = _this
+            new_thread_sf = rs.curr_frame()
+            rs.push _this
+            run_method = rs.method_lookup({class: _this.type.toClassString(), sig: 'run()V'})
+            thread_runner_sf = run_method.setup_stack(rs)
+            new_thread_sf.runner = ->
+              new_thread_sf.runner = null  # new_thread_sf is the fake SF at index 0
               _this.$isAlive = false
-              rs.thread_pool.splice rs.thread_pool.indexOf(_this), 1
-            debug "TE: starting #{my_name} from #{orig_name}"
-
-            # handler for any yields that come from our started thread
-            resume_thread = (cb) ->
-              debug "TE: thread #{my_name} was paused"
-              rs.curr_thread = spawning_thread
-              rs.curr_frame().resume = ->
-                debug "TE: not cleaning up #{my_name} after resume"
-                _this.$isAlive = false
-              cb ->
-                debug "TE: actually resuming #{thread_name rs, rs.curr_thread}"
-                rs.meta_stack().resuming_stack = 0
-                try
-                  method_to_run.run(rs, true)
-                catch e
-                  throw e unless e instanceof exceptions.YieldException
-                  resume_thread e.condition
-
-            # actually start the thread
-            throw new exceptions.YieldException (cb) ->
-              spawning_thread.$resume = cb
-              rs.curr_thread = _this
-              # call the thread's run() method.
-              rs.push _this
-              try
-                method_to_run = rs.method_lookup({class: _this.type.toClassString(), sig: 'run()V'})
-                method_to_run.run(rs)
-              catch e
-                if e instanceof exceptions.YieldIOException
-                  return e.condition ->
-                    rs.meta_stack().resuming_stack = 1
-                    rs.curr_frame().method.run(rs, true)
-                else if e instanceof exceptions.YieldException
-                  resume_thread e.condition
-                  rs.curr_thread.$isAlive = false
-                  rs.thread_pool.splice rs.thread_pool.indexOf(rs.curr_thread), 1
-                else
-                  return e.toplevel_catch_handler(rs) if e.toplevel_catch_handler?
-                  console.log "\nInternal JVM Error!", e.stack
-                  rs.show_state()
-                  return
-              debug "TE: finished running #{thread_name rs, rs.curr_thread}"
-
-              # yield to a paused thread
-              yieldee = (y for y in rs.thread_pool when y isnt rs.curr_thread).pop()
-              if yieldee?
-                rs.curr_thread = yieldee
-                debug "TE: about to resume #{thread_name rs, rs.curr_thread}"
-                rs.curr_thread.$resume()
-
+              debug "TE(start0): thread died: #{thread_name rs, _this}"
+            old_thread_sf.runner = ->
+              debug "TE(start0): thread resumed: #{thread_name rs, rs.curr_thread}"
+              rs.meta_stack().pop()
+            throw exceptions.ReturnException
         o 'sleep(J)V', (rs, millis) ->
-            rs.curr_frame().resume = -> # NOP, return immediately after sleeping
+            rs.curr_frame().runner = -> rs.meta_stack().pop()
             throw new exceptions.YieldIOException (cb) ->
               setTimeout(cb, millis.toNumber())
-        o 'yield()V', (rs, _this) ->
-            unless _this is rs.curr_thread
-              exceptions.java_throw rs, 'java/lang/Error', "tried to yield non-current thread"
-            rs.yield()
+        o 'yield()V', (rs, _this) -> rs.yield()
       ]
     security:
       AccessController: [
@@ -580,18 +554,26 @@ native_methods =
       FileSystem: [
         o 'getFileSystem()L!/!/!;', (rs) ->
             # TODO: avoid making a new FS object each time this gets called? seems to happen naturally in java/io/File...
+            my_sf = rs.curr_frame()
             cache1 = rs.init_object 'java/io/ExpiringCache'
             cache2 = rs.init_object 'java/io/ExpiringCache'
             cache_init = rs.method_lookup({class: 'java/io/ExpiringCache', sig: '<init>()V'})
             rs.push2 cache1, cache2
-            cache_init.run(rs)
-            cache_init.run(rs)
-            rs.init_object 'java/io/UnixFileSystem', {
-              cache: cache1, javaHomePrefixCache: cache2
-              slash: system_properties['file.separator'].charCodeAt(0)
-              colon: system_properties['path.separator'].charCodeAt(0)
-              javaHome: rs.init_string(system_properties['java.home'], true)
-            }
+            cache_init.setup_stack(rs)
+            my_sf.runner = ->
+              cache_init.setup_stack(rs)
+              my_sf.runner = ->
+                rv = rs.init_object 'java/io/UnixFileSystem', {
+                  'java/io/UnixFileSystem/cache': cache1
+                  'java/io/UnixFileSystem/javaHomePrefixCache': cache2
+                  'java/io/UnixFileSystem/slash': system_properties['file.separator'].charCodeAt(0)
+                  'java/io/UnixFileSystem/colon': system_properties['path.separator'].charCodeAt(0)
+                  'java/io/UnixFileSystem/javaHome': rs.init_string(system_properties['java.home'], true)
+                }
+                rs.meta_stack().pop()
+                rs.push rv
+              throw exceptions.ReturnException
+            throw exceptions.ReturnException
       ]
       FileOutputStream: [
         o 'open(L!/lang/String;)V', (rs, _this, fname) ->
@@ -619,8 +601,9 @@ native_methods =
               return if bytes_read == 0 then -1 else buf.readUInt8(0)
             # reading from System.in, do it async
             data = null # will be filled in after the yield
-            rs.curr_frame().resume = ->
-              if data.length == 0 then -1 else data.charCodeAt(0)
+            rs.curr_frame().runner = ->
+              rs.meta_stack().pop()
+              rs.push(if data.length == 0 then -1 else data.charCodeAt(0))
             throw new exceptions.YieldIOException (cb) ->
               rs.async_input 1, (byte) ->
                 data = byte
@@ -643,7 +626,9 @@ native_methods =
               return if bytes_read == 0 and n_bytes isnt 0 then -1 else bytes_read
             # reading from System.in, do it async
             result = null # will be filled in after the yield
-            rs.curr_frame().resume = -> result
+            rs.curr_frame().runner = ->
+              rs.meta_stack().pop()
+              rs.push result
             throw new exceptions.YieldIOException (cb) ->
               rs.async_input n_bytes, (bytes) ->
                 byte_arr.array[offset+idx] = b for b, idx in bytes
@@ -672,7 +657,9 @@ native_methods =
               return gLong.fromNumber(to_skip)
             # reading from System.in, do it async
             num_skipped = null # will be filled in after the yield
-            rs.curr_frame().resume = -> gLong.fromNumber(num_skipped)
+            rs.curr_frame().runner = ->
+              rs.meta_stack().pop()
+              rs.push gLong.fromNumber(num_skipped)
             throw new exceptions.YieldIOException (cb) ->
               rs.async_input n_bytes.toNumber(), (bytes) ->
                 num_skipped = bytes.length  # we don't care about what the input actually was
@@ -717,7 +704,7 @@ native_methods =
             js_str = jvm_path_str.jvm2js_str()
             rs.init_string path.resolve(path.normalize(js_str))
         o 'checkAccess(Ljava/io/File;I)Z', (rs, _this, file, access) ->
-            filepath = file.get_field rs, 'path'
+            filepath = file.get_field rs, 'java/io/File/path'
             stats = stat_file filepath.jvm2js_str()
             return false unless stats?
             #XXX: Assuming we're owner/group/other. :)
@@ -728,7 +715,7 @@ native_methods =
             mask = access | (access << 3) | (access << 6)
             return (stats.mode & mask) > 0
         o 'createDirectory(Ljava/io/File;)Z', (rs, _this, file) ->
-            filepath = (file.get_field rs, 'path').jvm2js_str()
+            filepath = (file.get_field rs, 'java/io/File/path').jvm2js_str()
             # Already exists.
             return false if stat_file(filepath)?
             try
@@ -756,7 +743,7 @@ native_methods =
             # Delete the file or directory denoted by the given abstract
             # pathname, returning true if and only if the operation succeeds.
             # If file is a directory, it must be empty.
-            filepath = (file.get_field rs, 'path').jvm2js_str()
+            filepath = (file.get_field rs, 'java/io/File/path').jvm2js_str()
             stats = stat_file filepath
             return false unless stats?
             try
@@ -769,17 +756,17 @@ native_methods =
               return false
             return true
         o 'getBooleanAttributes0(Ljava/io/File;)I', (rs, _this, file) ->
-            filepath = file.get_field rs, 'path'
+            filepath = file.get_field rs, 'java/io/File/path'
             stats = stat_file filepath.jvm2js_str()
             return 0 unless stats?
             if stats.isFile() then 3 else if stats.isDirectory() then 5 else 1
         o 'getLastModifiedTime(Ljava/io/File;)J', (rs, _this, file) ->
-            filepath = file.get_field(rs, 'path').jvm2js_str()
+            filepath = file.get_field(rs, 'java/io/File/path').jvm2js_str()
             stats = stat_file filepath
             return gLong.ZERO unless stats?
             gLong.fromNumber (new Date(stats.mtime)).getTime()
         o 'getLength(Ljava/io/File;)J', (rs, _this, file) ->
-            filepath = file.get_field rs, 'path'
+            filepath = file.get_field rs, 'java/io/File/path'
             try
               length = fs.statSync(filepath.jvm2js_str()).size
             catch e
@@ -787,15 +774,15 @@ native_methods =
             gLong.fromNumber(length)
         #o 'getSpace(Ljava/io/File;I)J', (rs, _this, file, t) ->
         o 'list(Ljava/io/File;)[Ljava/lang/String;', (rs, _this, file) ->
-            filepath = file.get_field rs, 'path'
+            filepath = file.get_field rs, 'java/io/File/path'
             try
               files = fs.readdirSync(filepath.jvm2js_str())
             catch e
               return null
-            rs.init_object('[Ljava/lang/String;',(rs.init_string(f) for f in files))
+            rs.init_array('[Ljava/lang/String;',(rs.init_string(f) for f in files))
         o 'rename0(Ljava/io/File;Ljava/io/File;)Z', (rs, _this, file1, file2) ->
-          file1path = (file1.get_field rs, 'path').jvm2js_str()
-          file2path = (file2.get_field rs, 'path').jvm2js_str()
+          file1path = (file1.get_field rs, 'java/io/File/path').jvm2js_str()
+          file2path = (file2.get_field rs, 'java/io/File/path').jvm2js_str()
           try
             fs.renameSync(file1path, file2path)
           catch e
@@ -803,7 +790,7 @@ native_methods =
           return true
         #o 'setLastModifiedTime(Ljava/io/File;J)Z', (rs, _this, file, time) ->
         o 'setPermission(Ljava/io/File;IZZ)Z', (rs, _this, file, access, enable, owneronly) ->
-            filepath = (file.get_field rs, 'path').jvm2js_str()
+            filepath = (file.get_field rs, 'java/io/File/path').jvm2js_str()
             # Access is equal to one of the following static fields:
             # * FileSystem.ACCESS_READ (0x04)
             # * FileSystem.ACCESS_WRITE (0x02)
@@ -837,7 +824,7 @@ native_methods =
               return false
             return true
         o 'setReadOnly(Ljava/io/File;)Z', (rs, _this, file) ->
-          filepath = (file.get_field rs, 'path').jvm2js_str()
+          filepath = (file.get_field rs, 'java/io/File/path').jvm2js_str()
           # We'll be unsetting write permissions.
           # Leading 0o indicates octal.
           mask = ~(0o222)
@@ -862,7 +849,7 @@ native_methods =
       ResourceBundle: [
         o 'getClassContext()[L!/lang/Class;', (rs) ->
             # XXX should walk up the meta_stack and fill in the array properly
-            rs.init_object '[Ljava/lang/Class;', [null,null,null]
+            rs.init_array '[Ljava/lang/Class;', [null,null,null]
       ]
       TimeZone: [
         o 'getSystemTimeZoneID(L!/lang/String;L!/lang/String;)L!/lang/String;', (rs, java_home, country) ->
@@ -893,9 +880,9 @@ native_methods =
       ]
       MemoryImpl: [
         o 'getMemoryManagers0()[Ljava/lang/management/MemoryManagerMXBean;', (rs) ->
-            rs.init_object '[Lsun/management/MemoryManagerImpl;', [] # XXX may want to revisit this 'NOP'
+            rs.init_array '[Lsun/management/MemoryManagerImpl;', [] # XXX may want to revisit this 'NOP'
         o 'getMemoryPools0()[Ljava/lang/management/MemoryPoolMXBean;', (rs) ->
-            rs.init_object '[Lsun/management/MemoryPoolImpl;', [] # XXX may want to revisit this 'NOP'
+            rs.init_array '[Lsun/management/MemoryPoolImpl;', [] # XXX may want to revisit this 'NOP'
       ]
     misc:
       VM: [
@@ -939,11 +926,11 @@ native_methods =
         o 'compareAndSwapLong(Ljava/lang/Object;JJJ)Z', unsafe_compare_and_swap
         o 'ensureClassInitialized(Ljava/lang/Class;)V', (rs,_this,cls) ->
             rs.class_lookup(cls.$type)
-        o 'staticFieldOffset(Ljava/lang/reflect/Field;)J', (rs,_this,field) -> gLong.fromNumber(field.get_field rs, 'slot')
-        o 'objectFieldOffset(Ljava/lang/reflect/Field;)J', (rs,_this,field) -> gLong.fromNumber(field.get_field rs, 'slot')
+        o 'staticFieldOffset(Ljava/lang/reflect/Field;)J', (rs,_this,field) -> gLong.fromNumber(field.get_field rs, 'java/lang/reflect/Field/slot')
+        o 'objectFieldOffset(Ljava/lang/reflect/Field;)J', (rs,_this,field) -> gLong.fromNumber(field.get_field rs, 'java/lang/reflect/Field/slot')
         o 'staticFieldBase(Ljava/lang/reflect/Field;)Ljava/lang/Object;', (rs,_this,field) ->
-            cls = field.get_field rs, 'clazz'
-            rs.set_obj cls.$type
+            cls = field.get_field rs, 'java/lang/reflect/Field/clazz'
+            new JavaObject rs, cls.$type, rs.class_lookup(cls.$type)
         o 'getObjectVolatile(Ljava/lang/Object;J)Ljava/lang/Object;', (rs,_this,obj,offset) ->
             obj.get_field_from_offset rs, offset
         o 'getObject(Ljava/lang/Object;J)Ljava/lang/Object;', (rs,_this,obj,offset) ->
@@ -964,23 +951,32 @@ native_methods =
       ]
       NativeMethodAccessorImpl: [
         o 'invoke0(Ljava/lang/reflect/Method;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;', (rs,m,obj,params) ->
-            cls = m.get_field rs, 'clazz'
-            slot = m.get_field rs, 'slot'
+            cls = m.get_field rs, 'java/lang/reflect/Method/clazz'
+            slot = m.get_field rs, 'java/lang/reflect/Method/slot'
             method = (method for sig, method of rs.class_lookup(cls.$type, true).methods when method.idx is slot)[0]
+            my_sf = rs.curr_frame()
             rs.push obj unless method.access_flags.static
             rs.push_array params.array
-            method.run(rs)
-            rs.pop()
+            method.setup_stack(rs)
+            my_sf.runner = ->
+              rv = rs.pop()
+              rs.meta_stack().pop()
+              rs.push rv
+            throw exceptions.ReturnException
       ]
       NativeConstructorAccessorImpl: [
         o 'newInstance0(Ljava/lang/reflect/Constructor;[Ljava/lang/Object;)Ljava/lang/Object;', (rs,m,params) ->
-            cls = m.get_field rs, 'clazz'
-            slot = m.get_field rs, 'slot'
+            cls = m.get_field rs, 'java/lang/reflect/Constructor/clazz'
+            slot = m.get_field rs, 'java/lang/reflect/Constructor/slot'
             method = (method for sig, method of rs.class_lookup(cls.$type, true).methods when method.idx is slot)[0]
-            rs.push (obj = rs.set_obj cls.$type)
+            my_sf = rs.curr_frame()
+            rs.push (obj = new JavaObject rs, cls.$type, rs.class_lookup(cls.$type))
             rs.push_array params.array if params?
-            method.run(rs)
-            obj
+            method.setup_stack(rs)
+            my_sf.runner = ->
+              rs.meta_stack().pop()
+              rs.push obj
+            throw exceptions.ReturnException
       ]
       Reflection: [
         o 'getCallerClass(I)Ljava/lang/Class;', (rs, frames_to_skip) ->

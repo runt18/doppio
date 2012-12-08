@@ -29,7 +29,7 @@ CLASSES = $(SOURCES:.java=.class)
 # note: TESTS files never get made, but we use them for make rules
 TESTS   = $(SOURCES:.java=.test)
 
-DEMO_SRCS = $(wildcard classes/demo/*.java) classes/test/FileRead.java
+DEMO_SRCS = $(wildcard classes/demo/*.java)
 DEMO_CLASSES = $(DEMO_SRCS:.java=.class)
 UTIL_SRCS = $(wildcard classes/util/*.java)
 UTIL_CLASSES = $(UTIL_SRCS:.java=.class)
@@ -70,6 +70,8 @@ COMMON_BROWSER_SRCS = vendor/_.js \
 release_BROWSER_SRCS = $(COMMON_BROWSER_SRCS) \
 	vendor/jquery.console.js \
 	browser/frontend.coffee
+dev_BROWSER_SRCS = $(release_BROWSER_SRCS)
+development_BROWSER_SRCS = $(release_BROWSER_SRCS)
 # Benchmark uses the mock jQuery console.
 benchmark_BROWSER_SRCS = $(COMMON_BROWSER_SRCS) \
 	browser/mockconsole.coffee \
@@ -173,7 +175,7 @@ browser/mini-rt.tar: tools/preload
 tools/preload:
 	make opt
 	@echo "Generating list of files to preload in browser... (will take a few seconds)"
-	@node build/opt/console/runner.js classes/util/Javac --java=./classes/test/FileOps.java --list-class-cache > tools/preload
+	@node build/opt/console/runner.js --classpath build/opt classes/util/Javac --java=./classes/test/FileOps.java --list-class-cache > tools/preload
 
 ################################################################################
 # BUILD DIRECTORY TARGETS
