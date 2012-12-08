@@ -12,17 +12,21 @@ jvm = require '../src/jvm'
 # AST traversal helpers
 
 traverse = (object, visitor) ->
-  if visitor[object.type]?
-    object = visitor[object.type].call(null, object)
-    return unless object?
-
   unless Array.isArray object
+    if visitor.pre[object.type]?
+      object = visitor.pre[object.type].call(null, object)
+      return unless object?
+
     complete = true
     for key in Object.keys object
       child = object[key]
       if typeof child == 'object' && child != null
         object[key] = traverse(child, visitor)
         complete &= object[key]?
+
+    if visitor.post[object.type]?
+      object = visitor.post[object.type].call(null, object)
+
     if complete then object else null
   else
     new_object = []
@@ -43,54 +47,55 @@ class CompileError
 assert_node_type = (obj, type) ->
   throw new CompileError obj, "Expected type #{type}, got #{obj.type}" unless type is obj.type
 
-ident_or_lit_value = (node) -> node.value ? node.name
+member_value = (node) -> node.value ? node.name
+
+ident = (str) -> type: 'Identifier', name: str
+
+lit = (str) -> type: 'Literal', value: str
+
+stmt = (node) -> type: 'ExpressionStatement', expression: node
 
 # Resolving / typechecking code
 
 jvm.classpath.push "#{__dirname}/../vendor/classes"
 
 class ClassResolver
-  package_name = ""
-  class_name = ""
-  import_map = {}
+  constructor: (@package_name) ->
+    @class_name = ""
+    @import_map = {}
 
-  @set_package_name: (name) ->
-    package_name = util.int_classname name
-
-  @get_package_name: -> package_name
-
-  @add_name: (name) ->
+  add_name: (name) ->
     name = util.int_classname name
     shortname = util.last(name.split '/')
-    if import_map[shortname]?
-      throw new Error "Conflicting imports: #{name} and #{import_map[shortname]}"
+    if @import_map[shortname]?
+      throw new Error "Conflicting imports: #{name} and #{@import_map[shortname]}"
     classfile = jvm.read_classfile name
     classfile? || throw new Error "Could not load #{val} (classpath was #{jvm.classpath}"
-    import_map[shortname] = { name: name, file: classfile }
+    @import_map[shortname] = { name: name, file: classfile }
     return classfile
 
-  @resolve: (shortname) ->
+  resolve: (shortname) ->
     # TODO: handle shortened but still qualified names
-    if shortname of import_map
-      import_map[shortname]
+    if shortname of @import_map
+      @import_map[shortname]
     else if (classfile = jvm.read_classfile "java/lang/#{shortname}")
       { name: "java/lang/#{shortname}", classfile: classfile }
     else
       throw new Error "Could not resolve #{shortname}"
 
-convert_type = (ext_type) ->
+convert_type = (ext_type, resolver) ->
   if ext_type of types.external2internal
     new types.PrimitiveType ext_type
   else if (matches = /([^[]+)(\[\]+)$/.exec ext_type)
     array_prefix = ('[' for i in [0...matches[2].length/2] by 1).join ''
-    return c2t array_prefix + convert_type matches[1]
+    return c2t array_prefix + convert_type matches[1], resolver
   else
-    c2t (ClassResolver.resolve ext_type).name
+    c2t (resolver.resolve ext_type).name
 
 class Signature
   regex = /^(static\s+)?(\S+)\s+([\w\d$]+)\s*\((.*)\)/
 
-  constructor: (@full_class_name, sig) ->
+  constructor: (@full_class_name, sig, @resolver) ->
     groups = regex.exec sig
     @static = groups[1]?
     @ret_type = groups[2]
@@ -107,126 +112,156 @@ class Signature
     "#{@full_class_name}::#{@toString()}"
 
   toString: ->
-    ret = convert_type @ret_type
-    arg_types = (convert_type arg.type for arg in @args)
+    ret = convert_type @ret_type, @resolver
+    arg_types = (convert_type(arg.type, @resolver) for arg in @args)
     "#{@name}(#{arg_types.join ''})#{ret}"
 
-nodeVisitor =
-  CallExpression: (obj) ->
-    switch obj.callee.name
-      when '_package'
-        ClassResolver.set_package_name obj.arguments[0].value
-      when '_import'
-        ClassResolver.add_name obj.arguments[0].value
-      when '_class'
-        arg = obj.arguments[0]
-        assert_node_type arg, 'AssignmentExpression'
-        class_name = arg.left.name
-        full_name = "#{ClassResolver.get_package_name()}/#{class_name}"
-        classfile = ClassResolver.add_name full_name
-        for prop in arg.right.properties
-          sig = new Signature full_name, prop.key.value
-          unless (m = classfile.methods[sig])?
-            candidate_sigs = []
-            for candidate_sig, candidate of classfile.methods
-              if (candidate_sig.indexOf sig.name) != -1
-                candidate_sigs.push candidate_sig
-            msg = "Could not find method #{sig.toFullString()}."
-            if candidate_sigs.length > 0
-              msg += " Did you mean #{candidate_sigs.join(", ")}?"
-            throw new CompileError prop, msg
-          # cast the flag to a boolean
-          unless (!!m.access_flags.static) == sig.static
-            throw new CompileError prop, "Static flag mismatch for method #{sig.toFullString()}"
-          prop.key.value = sig.toFullString()
-          assert_node_type prop.value, 'FunctionExpression'
-          prop.value.params = [type: 'Identifier', name: 'rs']
-          prop.value.params.push {type: 'Identifier', name: '_this'} unless sig.static
-          Array::push.apply(prop.value.params,
-            {type:'Identifier',name:java_arg.name} for java_arg in sig.args)
-        return obj
-      when '_new'
-        obj.callee.name = 'rs.init_object'
-        arg = obj.arguments[0]
-        arg.value = (convert_type arg.value).toString()
-        return obj
-      when '_throw'
-        arg = obj.arguments[0]
-        assert_node_type arg, 'CallExpression'
-        obj.callee.name = 'exceptions.java_throw'
-        obj.arguments = [
-          {type: 'Identifier', name: 'rs'}
-          {type: 'Literal', value: (convert_type arg.callee.name).toClassString()}
-        ]
-        Array::push.apply obj.arguments, arg.arguments
-        return obj
-      when '_static'
-        arg = obj.arguments[0]
-        if arg.type is 'AssignmentExpression'
-          obj.callee.name = 'rs.static_put'
-          cls_name = arg.left.object.name
-          full_name = (ClassResolver.resolve cls_name).name
-          obj.arguments[0] = {
-            type: 'ObjectExpression'
-            properties: [
-              {
-                type: 'Property'
-                key: { type: 'Identifier', name: 'class' }
-                value: { type: 'Literal', value: full_name }
-                kind: 'init'
-              }
-              {
-                type: 'Property'
-                key: { type: 'Identifier', name: 'name' }
-                value: { type: 'Literal', value: ident_or_lit_value arg.left.property }
-                kind: 'init'
-              }
-            ]
-          }
-          return {
-            type: 'SequenceExpression'
-            expressions: [
-              {
-                type: 'CallExpression'
-                callee: {
-                  type: 'Identifier'
-                  name: 'rs.push'
-                }
-                arguments: [ arg.right ]
-              }
-              obj
-            ]
-          }
-        else
-          assert_node_type arg, 'MemberExpression'
-          cls_name = arg.object.name
-          full_name = (ClassResolver.resolve cls_name).name
-          obj.callee.name = 'rs.static_get'
+class NodeVisitor
+  resolver = null
+  methods = []
+
+  @get_methods: -> methods
+
+  @pre:
+    CallExpression: (obj) ->
+      switch obj.callee.name
+        when '_package'
+          resolver = new ClassResolver obj.arguments[0].value
+        when '_import'
+          resolver.add_name obj.arguments[0].value
+        when '_class'
+          arg = obj.arguments[0]
+          assert_node_type arg, 'AssignmentExpression'
+          class_name = arg.left.name
+          full_name = "#{resolver.package_name}/#{class_name}"
+          classfile = resolver.add_name full_name
+          for prop in arg.right.properties
+            sig = new Signature full_name, prop.key.value, resolver
+            unless (m = classfile.methods[sig])?
+              candidate_sigs = []
+              for candidate_sig, candidate of classfile.methods
+                if (candidate_sig.indexOf sig.name) != -1
+                  candidate_sigs.push candidate_sig
+              msg = "Could not find method #{sig.toFullString()}."
+              if candidate_sigs.length > 0
+                msg += " Did you mean #{candidate_sigs.join(", ")}?"
+              throw new CompileError prop, msg
+            # cast the flag to a boolean
+            unless (!!m.access_flags.static) == sig.static
+              throw new CompileError prop, "Static flag mismatch for method #{sig.toFullString()}"
+            prop.key.value = sig.toFullString()
+            assert_node_type prop.value, 'FunctionExpression'
+            prop.value.params = [ident 'rs']
+            prop.value.params.push ident '_this' unless sig.static
+            Array::push.apply(prop.value.params,
+              ident java_arg.name for java_arg in sig.args)
+          Array::push.apply methods, arg.right.properties
+          return obj
+        when '_new'
+          obj.callee.name = 'rs.init_object'
+          arg = obj.arguments[0]
+          arg.value = (convert_type arg.value, resolver).toString()
+          return obj
+        when '_throw'
+          arg = obj.arguments[0]
+          assert_node_type arg, 'CallExpression'
+          obj.callee.name = 'exceptions.java_throw'
           obj.arguments = [
-            {
+            ident 'rs'
+            lit (convert_type arg.callee.name, resolver).toClassString()
+          ]
+          Array::push.apply obj.arguments, arg.arguments
+          return obj
+        when '_static'
+          arg = obj.arguments[0]
+          if arg.type is 'AssignmentExpression'
+            obj.callee.name = 'rs.static_put'
+            cls_name = arg.left.object.name
+            full_name = (resolver.resolve cls_name).name
+            obj.arguments[0] = {
               type: 'ObjectExpression'
               properties: [
                 {
                   type: 'Property'
-                  key: { type: 'Identifier', name: 'class' }
-                  value: { type: 'Literal', value: full_name }
+                  key: ident 'class'
+                  value: lit full_name
                   kind: 'init'
                 }
                 {
                   type: 'Property'
-                  key: { type: 'Identifier', name: 'name' }
-                  value: { type: 'Literal', value: ident_or_lit_value arg.property }
+                  key: ident 'name'
+                  value: lit member_value arg.left.property
                   kind: 'init'
                 }
               ]
             }
-          ]
+            return {
+              type: 'SequenceExpression'
+              expressions: [
+                {
+                  type: 'CallExpression'
+                  callee: ident 'rs.push'
+                  arguments: [ arg.right ]
+                }
+                obj
+              ]
+            }
+          else
+            assert_node_type arg, 'MemberExpression'
+            cls_name = arg.object.name
+            full_name = (resolver.resolve cls_name).name
+            obj.callee.name = 'rs.static_get'
+            obj.arguments = [
+              type: 'ObjectExpression'
+              properties: [
+                {
+                  type: 'Property'
+                  key: ident 'class'
+                  value: lit full_name
+                  kind: 'init'
+                }
+                {
+                  type: 'Property'
+                  key: ident 'name'
+                  value: lit member_value arg.property
+                  kind: 'init'
+                }
+              ]
+            ]
+            return obj
+        else
           return obj
-      else
-        return obj
-    return
+      return
+
+  @post:
+    CallExpression: (obj) ->
+      switch obj.callee.name
+        when '_class'
+          null
+        else
+          obj
+
+
+compile = (file_list) ->
+
+  stmts = []
+
+  for file in file_list
+    tree = traverse esprima.parse((fs.readFileSync file), loc:true), NodeVisitor
+    Array::push.apply stmts, tree.body
+
+  stmts.push stmt {
+    type: 'AssignmentExpression'
+    left: ident 'native_methods'
+    operator: '='
+    right: {
+      type: 'ObjectExpression'
+      properties: NodeVisitor.get_methods()
+    }
+  }
+
+  escodegen.generate(type: 'Program', body: stmts)
 
 if module? and require?.main == module
   {argv} = require 'optimist'
-  tree = traverse(esprima.parse((fs.readFileSync argv._[0]), loc:true), nodeVisitor)
-  console.log escodegen.generate(tree)
+  console.log compile argv._
