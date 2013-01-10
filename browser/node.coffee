@@ -1,10 +1,10 @@
-win = window
+win = self
 
 root = win.node = {}
 basename = (path) -> path.split('/').pop()
 win.require = (path) ->
   [name, ext] = basename(path).split '.'
-  window[name] ?= {}
+  self[name] ?= {}
 
 _ = require '../vendor/_.js'
 
@@ -13,7 +13,7 @@ _ = require '../vendor/_.js'
 # IE9 and below only: Injects a VBScript function that converts the
 # 'responseBody' attribute of an XMLHttpRequest into a bytestring.
 # Credit: http://miskun.com/javascript/internet-explorer-and-binary-files-data-access/#comment-11
-inject_vbscript = ->
+root.inject_vbscript = ->
   IEBinaryToArray_ByteStr_Script =
     "<!-- IEBinaryToArray_ByteStr -->\r\n"+
     "<script type='text/vbscript'>\r\n"+
@@ -32,10 +32,6 @@ inject_vbscript = ->
     "</script>\r\n"
 
   document.write(IEBinaryToArray_ByteStr_Script)
-
-# Run once at JavaScript load time.
-if $.browser.msie and not window.Blob
-  inject_vbscript()
 
 # Converts 'responseBody' in IE into the equivalent 'responseText' that other
 # browsers would generate.
@@ -316,7 +312,7 @@ class WebserverSource extends FileSource
         success: (theData, status, jqxhr) -> data = theData
       }
     # IE 10+ path
-    else if window.Blob
+    else if self.Blob
       # In IE10, we can do a 'blob' request to get a binary blob that we can
       # convert into a string.
       # jQuery's 'ajax' function does not support blob requests, so we're going

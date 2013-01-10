@@ -142,7 +142,6 @@ setup_editor = ->
 
 
 $(document).ready ->
-  console.log 'doc ready'
   # function to update the UI for the preload progress bar
   update_bar = _.throttle ((percent, path) ->
     bar = $('#progress > .bar')
@@ -153,7 +152,10 @@ $(document).ready ->
     preloading_file.text(
       if display_perc < 100 then "Loading #{path}" else "Done!"))
 
-  console.log 'setting up jvm worker'
+  # hack for old IE versions
+  if $.browser.msie and not window.Blob
+    inject_vbscript()
+
   setup_jvm_worker()
   setup_console()
   setup_file_uploader()

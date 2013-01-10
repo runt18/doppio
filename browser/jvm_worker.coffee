@@ -5,7 +5,8 @@ class_cache = {}
 raw_cache = {}
 
 # magic invocation to get access to required external JS
-importScripts('node.js', 'untar.js', '/src/util.js')
+importScripts('node.js')
+importScripts('untar.js')
 
 postJSON = (message) =>
   @postMessage JSON.stringify message
