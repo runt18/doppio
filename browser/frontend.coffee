@@ -12,12 +12,12 @@ setup_jvm_worker = ->
   jvm_worker.onerror = (e) ->
     throw new Error("#{e.message} (#{e.filename}:#{e.lineno})")
   jvm_worker.onmessage = (event) ->
-    console.log 'Got message from worker: ', event.data
-    switch event.data.type
+    msg = JSON.parse event.data
+    switch msg.type
       when 'error'
-        console.error event.data.message
+        console.error msg.message
       when 'stdout'
-        controller.message event.data.str, '', true  # noreprompt
+        controller.message msg.str, '', true  # noreprompt
       when 'stdin'
         oldPrompt = controller.promptLabel
         controller.promptLabel = ''
@@ -30,13 +30,13 @@ setup_jvm_worker = ->
             jvm_worker.postMessage {type: 'stdin resume', read_bytes: 0}
           else
             line += "\n" # so BufferedReader knows it has a full line
-            len = Math.min event.data.n_bytes, line.length
+            len = Math.min msg.n_bytes, line.length
             bytes = (line.charCodeAt(i) for i in [0...len] by 1)
             jvm_worker.postMessage {type: 'stdin resume', read_bytes: bytes}
       when 'preload progress'
-        update_bar(event.data.percent, event.data.path)
+        update_bar(msg.percent, msg.path)
       when 'preload complete'
-        console.log "Untarring took a total of #{event.data.elapsed}ms."
+        console.log "Untarring took a total of #{msg.elapsed}ms."
         $('#overlay').fadeOut 'slow'
         $('#progress-container').fadeOut 'slow'
         $('#console').click()
@@ -312,7 +312,7 @@ tabComplete = ->
   prefix = longestCommmonPrefix(getCompletions(args))
   return if prefix == ''  # TODO: if we're tab-completing a blank, show all options
   # delete existing text so we can do case correction
-  promptText = promptText.substr(0, promptText.length - util.last(args).length)
+  promptText = promptText.substr(0, promptText.length - args[args.length-1].length)
   controller.promptText(promptText + prefix)
 
 commandCompletions = (cmd) ->
@@ -326,7 +326,7 @@ fileNameCompletions = (cmd, args) ->
     else if cmd is 'javap' or cmd is 'java' then ext is 'class'
     else true
   chopExt = args.length == 2 and (cmd is 'javap' or cmd is 'java')
-  toComplete = util.last(args)
+  toComplete = args[args.length-1]
   lastSlash = toComplete.lastIndexOf('/')
   if lastSlash >= 0
     dirPfx = toComplete.slice(0, lastSlash+1)
