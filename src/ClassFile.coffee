@@ -137,4 +137,4 @@ class ClassFile
 if module?
   module.exports = ClassFile
 else
-  window.ClassFile = ClassFile
+  self.ClassFile = ClassFile

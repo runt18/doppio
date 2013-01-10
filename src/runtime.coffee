@@ -1,5 +1,5 @@
 # Things assigned to root will be available outside this module.
-root = exports ? window.runtime ?= {}
+root = exports ? self.runtime ?= {}
 
 _ = require '../vendor/_.js'
 gLong = require '../vendor/gLong.js'

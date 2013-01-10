@@ -6,7 +6,7 @@ exceptions = require './exceptions'
 "use strict"
 
 # things assigned to root will be available outside this module
-root = exports ? window.util ?= {}
+root = exports ? self.util ?= {}
 
 root.INT_MAX = Math.pow(2, 31) - 1
 root.INT_MIN = -root.INT_MAX - 1 # -2^31

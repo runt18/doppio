@@ -4,7 +4,7 @@ gLong = require '../vendor/gLong.js'
 "use strict"
 
 # things assigned to root will be available outside this module
-root = exports ? window.logging ?= {}
+root = exports ? self.logging ?= {}
 
 # used for debugging the stack and local variables
 root.debug_vars = (arr) -> arr.map (e)->
@@ -22,8 +22,8 @@ root.ERROR = 1
 root.log_level ?= root.ERROR
 
 # IE Compatibility
-unless console? or window?.console
-  window.console = {
+unless console? or self?.console
+  self.console = {
     log: -> # Stub
     error: (msgs...) ->
       throw msgs.join('\n') + '\n' # Better than silently failing.

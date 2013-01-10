@@ -8,7 +8,7 @@ types = require './types'
 
 "use strict"
 
-root = exports ? window.opcodes = {}
+root = exports ? self.opcodes = {}
 
 class root.Opcode
   constructor: (@name, params={}) ->

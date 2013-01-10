@@ -6,7 +6,7 @@ opcodes = require './opcodes'
 "use strict"
 
 # things assigned to root will be available outside this module
-root = exports ? window.attributes ?= {}
+root = exports ? self.attributes ?= {}
 
 class ExceptionHandler
   name: 'ExceptionHandler'

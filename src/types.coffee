@@ -13,7 +13,7 @@
 #
 # Rather confusing, I know.
 
-root = exports ? window.types ?= {}
+root = exports ? self.types ?= {}
 util = require './util'
 
 "use strict"

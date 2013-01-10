@@ -9,7 +9,7 @@ types = require './types'
 "use strict"
 
 # things assigned to root will be available outside this module
-root = exports ? window.java_object ?= {}
+root = exports ? self.java_object ?= {}
 
 class root.JavaArray
   constructor: (rs, @type, obj) ->

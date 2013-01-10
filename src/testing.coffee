@@ -10,7 +10,7 @@ path = node?.path ? require 'path'
 
 "use strict"
 
-root = exports ? window.testing ?= {}
+root = exports ? self.testing ?= {}
 
 root.find_test_classes = (doppio_dir) ->
   test_dir = path.resolve doppio_dir, 'classes/test'

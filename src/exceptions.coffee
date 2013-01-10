@@ -7,7 +7,7 @@ types = require './types'
 "use strict"
 
 # things assigned to root will be available outside this module
-root = exports ? window.exceptions ?= {}
+root = exports ? self.exceptions ?= {}
 
 class root.HaltException
   constructor: (@exit_code) ->

@@ -174,4 +174,4 @@ class ConstantPool
 if module?
   module.exports = ConstantPool
 else
-  window.ConstantPool = ConstantPool
+  self.ConstantPool = ConstantPool
