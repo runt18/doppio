@@ -1,12 +1,6 @@
 win = self
 
 root = win.node = {}
-basename = (path) -> path.split('/').pop()
-win.require = (path) ->
-  [name, ext] = basename(path).split '.'
-  self[name] ?= {}
-
-_ = require '../vendor/_.js'
 
 "use strict"
 

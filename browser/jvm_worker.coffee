@@ -4,9 +4,52 @@
 class_cache = {}
 raw_cache = {}
 
+basename = (path) -> path.split('/').pop()
+self.require = (path) ->
+  [name, ext] = basename(path).split '.'
+  unless self[name]?
+    # XXX: assumes that all new requires are in src
+    importScripts("/src/#{name}.js")
+  return self[name]
+
 # magic invocation to get access to required external JS
 importScripts('node.js')
-importScripts('untar.js')
+importScripts('/vendor/gLong.js', '/vendor/_.js')
+importScripts('/src/util.js', '/src/ClassFile.js', '/src/jvm.js')
+
+
+# copypasta from untar.coffee, because imports are hard
+untar = (bytes, cb, done_cb) ->
+  next_file = ->
+    [path,body] = shift_file(bytes)
+    percent = bytes.pos() / bytes.size()
+    cb percent, path, body
+    if bytes.peek() != 0
+      next_file()
+    else
+      done_cb?()
+  next_file()
+
+shift_file = (bytes) ->
+  header = bytes.read(512)
+  fname = util.bytes2str header[0...100]
+  size = octal2num header[124...124+11]
+  prefix = util.bytes2str header[345...345+155]
+  fullname = if prefix then "#{prefix}/#{fname}" else fname
+
+  body = bytes.read(Math.ceil(size/512)*512)
+  file = body[0...size]
+  [fullname, file]
+
+octal2num = (bytes) ->
+  num = 0
+  msd = bytes.length - 1
+  for b, idx in bytes
+    digit = parseInt String.fromCharCode b
+    num += digit * Math.pow 8, (msd - idx)
+  num
+# end copypasta
+
 
 postJSON = (message) =>
   @postMessage JSON.stringify message
@@ -23,7 +66,7 @@ preload = ->
       type: 'preload complete'
       elapsed: (new Date).getTime() - start_untar
 
-  untar new util.BytesArray(util.bytestr_to_array data), ((percent, path, file) ->
+  untar_cb = (percent, path, file) ->
     postJSON {type: 'preload progress', percent: percent, path: path}
     raw_cache[path] = file
     base_dir = 'vendor/classes/'
@@ -33,16 +76,15 @@ preload = ->
       return
     file_count++
     cls = base.substr(base_dir.length)
-    asyncExecute (->
-      # XXX: We convert from bytestr to array to process the tar file, and
-      #      then back to a bytestr to store as a file in the filesystem.
-      node.fs.writeFileSync(path, util.array_to_bytestr(file), true)
-      class_cache[cls] = new ClassFile file
-      on_complete() if --file_count == 0 and done
-    ), 0),
-    ->
-      done = true
-      on_complete() if file_count == 0
+    # XXX: We convert from bytestr to array to process the tar file, and
+    #      then back to a bytestr to store as a file in the filesystem.
+    node.fs.writeFileSync(path, util.array_to_bytestr(file), true)
+    class_cache[cls] = new ClassFile file
+    on_complete() if --file_count == 0 and done
+  untar_done_cb = ->
+    done = true
+    on_complete() if file_count == 0
+  untar new util.BytesArray(util.bytestr_to_array data), untar_cb, untar_done_cb
 
 fetch_rhino = ->
   data = node.fs.readFileSync("/home/doppio/vendor/classes/com/sun/tools/script/shell/Main.class")
@@ -86,6 +128,7 @@ user_input = (n_bytes, resume) ->
 reprompt = -> postJSON {type: 'reprompt'}
 
 @onmessage = (event) ->
+  console.log 'Worker got message: ', event.data
   switch event.data.type
     when 'initialize'
       preload()
@@ -130,7 +173,8 @@ reprompt = -> postJSON {type: 'reprompt'}
       rs = new runtime.RuntimeState(stdout, user_input, read_classfile)
       jvm.run_class(rs, '!rhino', args, reprompt)
     when 'list_cache'
-      stdout ((if val? then '' else '-') + name for name, val of raw_cache).join '\n'
+      cache_names = ((if val? then '' else '-') + name for name, val of raw_cache)
+      stdout cache_names.join('\n') + '\n'
     when 'clear_cache'
       # TODO: provide an option only blast specific classes
       raw_cache = {}
