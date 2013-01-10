@@ -302,15 +302,13 @@ class WebserverSource extends FileSource
 
     # The below code is complicated because we can't do a 'text' request in IE;
     # it truncates the response at the first NULL character.
-
-    if not $.browser.msie
-      $.ajax path, {
-        type: 'GET'
-        dataType: 'text'
-        async: false
-        beforeSend: (jqXHR) -> jqXHR.overrideMimeType('text/plain; charset=x-user-defined')
-        success: (theData, status, jqxhr) -> data = theData
-      }
+    req = new XMLHttpRequest()
+    req.open('GET', path, false)
+    if navigator.userAgent.indexOf('MSIE') == -1  # non-IE browser
+      req.overrideMimeType('text/plain; charset=x-user-defined')
+      req.send()
+      if req.status == 200
+        data = req.response
     # IE 10+ path
     else if self.Blob
       # In IE10, we can do a 'blob' request to get a binary blob that we can
@@ -319,8 +317,6 @@ class WebserverSource extends FileSource
       # to use XMLHttpRequest directly.
       # Furthermore, the code below will *NOT* work in Firefox or Chrome, since
       # they do not allow synchronous blob or arraybuffer requests.
-      req = new XMLHttpRequest()
-      req.open('GET', path, false)
       req.responseType = 'arraybuffer'
       req.send()
       if req.status == 200
@@ -338,8 +334,6 @@ class WebserverSource extends FileSource
       # JavaScript can process.
       # Note that this approach also works in IE10 for x86 platforms, but
       # not for ARM platforms which do not have VBScript support.
-      req = new XMLHttpRequest()
-      req.open('GET', path, false)
       req.setRequestHeader("Accept-Charset", "x-user-defined")
       req.send()
       if req.status == 200
