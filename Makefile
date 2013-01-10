@@ -100,7 +100,7 @@ BROWSER_COFFEE = $(shell echo $(BROWSER_SRCS) | fmt -1 | grep '.coffee')
 release: build $(BUILD_DIR)/browser/listings.json
 benchmark: build $(BUILD_DIR)/browser/listings.json
 dev development: $(DEMO_CLASSES) browser/mini-rt.tar browser/listings.json
-	$(COFFEEC) -c $(BROWSER_COFFEE)
+	$(COFFEEC) -c $(BROWSER_COFFEE) browser/jvm_worker.coffee
 	cpp -P browser/index.html index.html
 
 # optimized CLI build

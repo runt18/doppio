@@ -1,106 +1,50 @@
-root = this
 
 "use strict"
 
 # To be initialized on document load
-stdout = null
-user_input = null
 controller = null
 editor = null
-progress = null
+jvm_worker = null
+update_bar = null
 
-class_cache = {}
-raw_cache = {}
+setup_jvm_worker = ->
+  jvm_worker = new Worker 'browser/jvm_worker.js'
+  jvm_worker.onerror = (e) ->
+    throw new Error("#{e.message} (#{e.filename}:#{e.lineno})")
+  jvm_worker.onmessage = (event) ->
+    console.log 'Got message from worker: ', event.data
+    switch event.data.type
+      when 'error'
+        console.error event.data.message
+      when 'stdout'
+        controller.message event.data.str, '', true  # noreprompt
+      when 'stdin'
+        oldPrompt = controller.promptLabel
+        controller.promptLabel = ''
+        controller.reprompt()
+        oldHandle = controller.commandHandle
+        controller.commandHandle = (line) ->
+          controller.commandHandle = oldHandle
+          controller.promptLabel = oldPrompt
+          if line == '\0' # EOF
+            jvm_worker.postMessage {type: 'stdin resume', read_bytes: 0}
+          else
+            line += "\n" # so BufferedReader knows it has a full line
+            len = Math.min event.data.n_bytes, line.length
+            bytes = (line.charCodeAt(i) for i in [0...len] by 1)
+            jvm_worker.postMessage {type: 'stdin resume', read_bytes: bytes}
+      when 'preload progress'
+        update_bar(event.data.percent, event.data.path)
+      when 'preload complete'
+        console.log "Untarring took a total of #{event.data.elapsed}ms."
+        $('#overlay').fadeOut 'slow'
+        $('#progress-container').fadeOut 'slow'
+        $('#console').click()
+      when 'reprompt'
+        controller.reprompt()
+  jvm_worker.postMessage {type: 'initialize'}
 
-preload = ->
-  try
-    data = node.fs.readFileSync("/home/doppio/browser/mini-rt.tar")
-  catch e
-    console.error e
-
-  if data?
-    file_count = 0
-    done = false
-    start_untar = (new Date).getTime()
-    on_complete = ->
-      end_untar = (new Date).getTime()
-      console.log "Untarring took a total of #{end_untar-start_untar}ms."
-      $('#overlay').fadeOut 'slow'
-      $('#progress-container').fadeOut 'slow'
-      $('#console').click()
-    update_bar = _.throttle ((percent, path) ->
-      bar = $('#progress > .bar')
-      preloading_file = $('#preloading-file')
-      # +10% hack to make the bar appear fuller before fading kicks in
-      display_perc = Math.min Math.ceil(percent*100), 100
-      bar.width "#{display_perc}%", 150
-      preloading_file.text(
-        if display_perc < 100 then "Loading #{path}"  else "Done!"))
-
-    untar new util.BytesArray(util.bytestr_to_array data), ((percent, path, file) ->
-      update_bar(percent, path)
-      raw_cache[path] = file
-      base_dir = 'vendor/classes/'
-      [base,ext] = path.split('.')
-      unless ext is 'class'
-        on_complete() if percent == 100
-        return
-      file_count++
-      cls = base.substr(base_dir.length)
-      asyncExecute (->
-        # XXX: We convert from bytestr to array to process the tar file, and
-        #      then back to a bytestr to store as a file in the filesystem.
-        node.fs.writeFileSync(path, util.array_to_bytestr(file), true)
-        class_cache[cls] = new ClassFile file
-        on_complete() if --file_count == 0 and done
-      ), 0),
-      ->
-        done = true
-        on_complete() if file_count == 0
-
-fetch_rhino = ->
-  try
-    data = node.fs.readFileSync("/home/doppio/vendor/classes/com/sun/tools/script/shell/Main.class")
-  catch e
-    console.error e
-
-  if data?
-    class_cache['!rhino'] = process_bytecode data
-
-try_path = (path) ->
-  try
-    return util.bytestr_to_array node.fs.readFileSync(path)
-  catch e
-    return null
-
-# Read in a binary classfile synchronously. Return an array of bytes.
-read_classfile = (cls) ->
-  unless class_cache[cls]?
-    for path in jvm.classpath
-      fullpath = "#{path}#{cls}.class"
-      if fullpath of raw_cache
-        continue if raw_cache[fullpath] == null # we tried this path previously & it failed
-        class_cache[cls] = new ClassFile raw_cache[fullpath]
-        break
-      raw_cache[fullpath] = try_path fullpath
-      if raw_cache[fullpath]?
-        class_cache[cls] = new ClassFile raw_cache[fullpath]
-        break
-  class_cache[cls]
-
-root.read_raw_class = (path) ->
-  unless raw_cache[path]?
-    data = try_path path
-    raw_cache[path] = data if data?
-  raw_cache[path]
-
-process_bytecode = (bytecode_string) ->
-  bytes_array = util.bytestr_to_array bytecode_string
-  new ClassFile(bytes_array)
-
-$(document).ready ->
-  editor = $('#editor')
-  # set up the local file loaders
+setup_file_uploader = ->
   $('#file').change (ev) ->
     unless FileReader?
       controller.message """
@@ -137,6 +81,7 @@ $(document).ready ->
       file_fcn(f)
     return
 
+setup_console = ->
   jqconsole = $('#console')
   controller = jqconsole.console
     promptLabel: 'doppio > '
@@ -178,26 +123,11 @@ $(document).ready ->
       Enter 'help' for full a list of commands. Ctrl-D is EOF.
       """
 
-  stdout = (str) -> controller.message str, '', true # noreprompt
-
-  user_input = (n_bytes, resume) ->
-    oldPrompt = controller.promptLabel
-    controller.promptLabel = ''
-    controller.reprompt()
-    oldHandle = controller.commandHandle
-    controller.commandHandle = (line) ->
-      controller.commandHandle = oldHandle
-      controller.promptLabel = oldPrompt
-      if line == '\0' # EOF
-        resume 0
-      else
-        line += "\n" # so BufferedReader knows it has a full line
-        resume (line.charCodeAt(i) for i in [0...Math.min(n_bytes,line.length)] by 1)
-
+setup_editor = ->
+  editor = $('#editor')
   close_editor = ->
     $('#ide').fadeOut 'fast', ->
       $('#console').fadeIn('fast').click() # click to restore focus
-
   $('#save_btn').click (e) ->
     fname = $('#filename').val()
     contents = editor.getSession().getValue()
@@ -206,58 +136,56 @@ $(document).ready ->
     controller.message("File saved as '#{fname}'.", 'success')
     close_editor()
     e.preventDefault()
+  $('#close_btn').click (e) ->
+    close_editor()
+    e.preventDefault()
 
-  $('#close_btn').click (e) -> close_editor(); e.preventDefault()
-  preload()
-  fetch_rhino()
+
+$(document).ready ->
+  console.log 'doc ready'
+  # function to update the UI for the preload progress bar
+  update_bar = _.throttle ((percent, path) ->
+    bar = $('#progress > .bar')
+    preloading_file = $('#preloading-file')
+    # +10% hack to make the bar appear fuller before fading kicks in
+    display_perc = Math.min Math.ceil(percent*100), 100
+    bar.width "#{display_perc}%", 150
+    preloading_file.text(
+      if display_perc < 100 then "Loading #{path}" else "Done!"))
+
+  console.log 'setting up jvm worker'
+  setup_jvm_worker()
+  setup_console()
+  setup_file_uploader()
+  setup_editor()
+
 
 commands =
-  javac: (args, cb) ->
-    jvm.classpath = [ "./", "/home/doppio/vendor/classes/", "/home/doppio" ]
-    rs = new runtime.RuntimeState(stdout, user_input, read_classfile)
-    jvm.run_class(rs, 'classes/util/Javac', args, -> controller.reprompt())
+  javac: (args) ->
+    jvm_worker.postMessage {type: 'javac', args: args}
     return null  # no reprompt, because we handle it ourselves
-  java: (args, cb) ->
+  java: (args) ->
     if !args[0]? or (args[0] == '-classpath' and args.length < 3)
       return "Usage: java [-classpath path1:path2...] class [args...]"
-    if args[0] == '-classpath'
-      jvm.classpath = args[1].split(':')
-      jvm.classpath.push "/home/doppio/vendor/classes/"
-      class_name = args[2]
-      class_args = args[3..]
-    else
-      jvm.classpath = [ "./", "/home/doppio/vendor/classes/" ]
-      class_name = args[0]
-      class_args = args[1..]
-    rs = new runtime.RuntimeState(stdout, user_input, read_classfile)
-    jvm.run_class(rs, class_name, class_args, -> controller.reprompt())
+    jvm_worker.postMessage {type: 'java', args: args}
     return null  # no reprompt, because we handle it ourselves
   test: (args) ->
     return "Usage: test all|[class(es) to test]" unless args[0]?
-    if args[0] == 'all'
-      testing.run_tests [], stdout, true, false, true, -> controller.reprompt()
-    else
-      testing.run_tests args, stdout, true, false, true, -> controller.reprompt()
+    jvm_worker.postMessage {type: 'test', args: args}
     return null
   javap: (args) ->
     return "Usage: javap class" unless args[0]?
-    try
-      raw_data = node.fs.readFileSync("#{args[0]}.class")
-    catch e
-      return ["Could not find class '#{args[0]}'.",'error']
-    disassembler.disassemble process_bytecode raw_data
+    jvm_worker.postMessage {type: 'javap', args: args}
     return null  # no reprompt, because we handle it ourselves
-  rhino: (args, cb) ->
-    jvm.classpath = [ "./", "/home/doppio/vendor/classes/" ]
-    rs = new runtime.RuntimeState(stdout, user_input, read_classfile)
-    jvm.run_class(rs, '!rhino', args, -> controller.reprompt())
+  rhino: (args) ->
+    jvm_worker.postMessage {type: 'rhino', args: args}
     return null  # no reprompt, because we handle it ourselves
   list_cache: ->
-    ((if val? then '' else '-') + name for name, val of raw_cache).join '\n'
-  clear_cache: (args) ->
-    raw_cache = {}
-    class_cache = {}
-    "Cache cleared."
+    jvm_worker.postMessage {type: 'list_cache'}
+    return ''
+  clear_cache: ->
+    jvm_worker.postMessage {type: 'clear_cache'}
+    return "Cache cleared."
   ls: (args) ->
     read_dir = (dir) -> node.fs.readdirSync(dir).sort().join '\n'
     if args.length == 0
