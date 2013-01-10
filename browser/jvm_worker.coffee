@@ -15,7 +15,7 @@ self.require = (path) ->
 # magic invocation to get access to required external JS
 importScripts('node.js')
 importScripts('/vendor/gLong.js', '/vendor/_.js')
-importScripts('/src/util.js', '/src/ClassFile.js', '/src/jvm.js')
+importScripts('/src/util.js', '/src/ClassFile.js', '/src/jvm.js', '/src/testing.js')
 
 
 # copypasta from untar.coffee, because imports are hard
