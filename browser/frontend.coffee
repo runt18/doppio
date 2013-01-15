@@ -161,7 +161,6 @@ $(document).ready ->
   setup_file_uploader()
   setup_editor()
 
-
 commands =
   javac: (args) ->
     jvm_worker.postMessage {type: 'javac', args: args}

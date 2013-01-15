@@ -68,7 +68,7 @@ class root.RuntimeState
     @lock_counts = {}  # map from monitor -> count
     @waiting_threads = {}  # map from monitor -> list of waiting thread objects
     @thread_pool = []
-    @curr_thread = {$meta_stack: new root.CallStack(), main: true}
+    @curr_thread = {$meta_stack: new root.CallStack()}
 
   init_threads: ->
     # initialize thread objects
@@ -80,7 +80,6 @@ class root.RuntimeState
       my_sf.runner = =>
         my_sf.runner = null
         ct.$meta_stack = @meta_stack()
-        ct.main = true  # designates that this is the main thread
         @curr_thread = ct
         @curr_thread.$isAlive = true
         @thread_pool.push @curr_thread
@@ -150,7 +149,6 @@ class root.RuntimeState
   yield: (yieldee=@choose_next_thread()) ->
     debug "TE(yield): yielding #{thread_name @, @curr_thread} to #{thread_name @, yieldee}"
     old_thread_sf = @curr_frame()
-    old_thread = @curr_thread
     @curr_thread = yieldee
     new_thread_sf = @curr_frame()
     new_thread_sf.runner = => @meta_stack().pop()
@@ -340,11 +338,17 @@ class root.RuntimeState
   # address of the block that this address is contained in
   block_addr: (address) ->
     address = address.toNumber() # address is a Long
-    block_addr = @mem_start_addrs[0]
-    for addr in @mem_start_addrs[1..]
-      if address < addr
-        return block_addr
-      block_addr = addr
+    if DataView?
+      block_addr = @mem_start_addrs[0]
+      for addr in @mem_start_addrs[1..]
+        if address < addr
+          return block_addr
+        block_addr = addr
+    else
+      # w/o typed arrays, we just address by 32bits.
+      # We initialize memory to 0, so it should not be 0 or undefined.
+      if @mem_blocks[address]?
+        return address
     UNSAFE? || throw new Error "Invalid memory access at #{address}"
 
   handle_toplevel_exception: (e, done_cb, no_threads) ->
@@ -378,8 +382,10 @@ class root.RuntimeState
     catch e
       if e == 'Error in class initialization'
         return false
-      else if e == ReturnException
-        return @run_until_finished (->), done_cb, no_threads
+      else if e is ReturnException
+        # XXX: technically we shouldn't get here. Right now we get here
+        # when java_throw is called from the main method lookup.
+        return @run_until_finished (->), done_cb, no_threads 
       else if e instanceof YieldIOException
         retval = null
         e.condition =>

@@ -25,7 +25,7 @@ else
 system_properties = {
   'java.home': "#{vendor_path}/java_home",
   'sun.boot.class.path': "#{vendor_path}/classes",
-  'file.encoding':'US_ASCII','java.vendor':'DoppioVM',
+  'file.encoding':'US_ASCII','java.vendor':'Doppio',
   'java.version': '1.6', 'java.vendor.url': 'https://github.com/int3/doppio',
   'java.class.version': '50.0',
   'line.separator':'\n', 'file.separator':'/', 'path.separator':':',
@@ -350,15 +350,19 @@ native_methods =
               i_view = new Int32Array f_view.buffer
               return i_view[0]
 
-            # Special case
+            # Special cases!
             return 0 if f_val is 0
+            # We map the infinities to JavaScript infinities. Map them back.
+            return util.FLOAT_POS_INFINITY_AS_INT if f_val is Number.POSITIVE_INFINITY
+            return util.FLOAT_NEG_INFINITY_AS_INT if f_val is Number.NEGATIVE_INFINITY
+            # Convert JavaScript NaN to Float NaN value.
+            return util.FLOAT_NaN_AS_INT if isNaN(f_val)
 
             # We have more bits of precision than a float, so below we round to
             # the nearest significand. This appears to be what the x86
             # Java does for normal floating point operations.
 
             sign = if f_val < 0 then 1 else 0
-            f_val_orig = f_val
             f_val = Math.abs(f_val)
             # Subnormal zone!
             # (−1)^signbits×2^−126×0.significandbits
@@ -369,13 +373,11 @@ native_methods =
             if f_val <= 1.1754942106924411e-38 and f_val >= 1.4012984643248170e-45
               exp = 0
               sig = Math.round((f_val/Math.pow(2,-126))*Math.pow(2,23))
-              value = (sign<<31)|(exp<<23)|sig
               return (sign<<31)|(exp<<23)|sig
             # Regular FP numbers
             else
               exp = Math.floor(Math.log(f_val)/Math.LN2)
               sig = Math.round((f_val/Math.pow(2,exp)-1)*Math.pow(2,23))
-              value = (sign<<31)|((exp+127)<<23)|sig
               return (sign<<31)|((exp+127)<<23)|sig
         o 'intBitsToFloat(I)F', (rs, i_val) -> util.intbits2float(i_val)
       ]
@@ -387,13 +389,47 @@ native_methods =
               return gLong.fromBits i_view[0], i_view[1]
 
             # Fallback for older JS engines
-            return gLong.ZERO if d_val is 0 or isNaN(d_val) or not isFinite(d_val)
-            sign = if d_val < 0 then gLong.ONE else gLong.ZERO
+            # Special cases
+            return gLong.ZERO if d_val is 0
+            if d_val is Number.POSITIVE_INFINITY
+              # High bits: 0111 1111 1111 0000 0000 0000 0000 0000
+              #  Low bits: 0000 0000 0000 0000 0000 0000 0000 0000
+              return gLong.fromBits(0, 2146435072)
+            else if d_val is Number.NEGATIVE_INFINITY
+              # High bits: 1111 1111 1111 0000 0000 0000 0000 0000
+              #  Low bits: 0000 0000 0000 0000 0000 0000 0000 0000
+              return gLong.fromBits(0, -1048576)
+            else if isNaN(d_val)
+              # High bits: 0111 1111 1111 1000 0000 0000 0000 0000
+              #  Low bits: 0000 0000 0000 0000 0000 0000 0000 0000
+              return gLong.fromBits(0, 2146959360)
+
+            sign = if d_val < 0 then (1 << 31) else 0
             d_val = Math.abs(d_val)
-            exp = gLong.fromNumber(Math.floor(Math.log(d_val)/Math.LN2))
-            sig = gLong.fromNumber((d_val/Math.pow(2,exp.toInt())-1)*Math.pow(2,52))
-            exp = exp.add(gLong.fromInt(1023))
-            sign.shiftLeft(63).add(exp.shiftLeft(52)).add(sig)
+
+            # Check if it is a subnormal number.
+            # (-1)s × 0.f × 2-1022
+            # Largest subnormal magnitude:
+            # 0000 0000 0000 1111 1111 1111 1111 1111
+            # 1111 1111 1111 1111 1111 1111 1111 1111
+            # Smallest subnormal magnitude:
+            # 0000 0000 0000 0000 0000 0000 0000 0000
+            # 0000 0000 0000 0000 0000 0000 0000 0001
+            if d_val <= 2.2250738585072010e-308 and d_val >= 5.0000000000000000e-324
+              exp = 0
+              sig = gLong.fromNumber((d_val/Math.pow(2,-1022))*Math.pow(2,52))
+            else
+              exp = Math.floor(Math.log(d_val)/Math.LN2)
+              # If d_val is close to a power of two, there's a chance that exp
+              # will be 1 greater than it should due to loss of accuracy in the
+              # log result.
+              exp = exp-1 if d_val < Math.pow(2,exp)
+              sig = gLong.fromNumber((d_val/Math.pow(2,exp)-1)*Math.pow(2,52))
+              exp = (exp + 1023) << 20
+
+            high_bits = sig.getHighBits() | sign | exp
+
+            gLong.fromBits(sig.getLowBits(), high_bits)
         o 'longBitsToDouble(J)D', (rs, l_val) -> util.longbits2double(l_val.getHighBits(), l_val.getLowBitsUnsigned())
       ]
       Object: [
@@ -608,7 +644,6 @@ native_methods =
                 }
                 rs.meta_stack().pop()
                 rs.push rv
-              throw exceptions.ReturnException
             throw exceptions.ReturnException
       ]
       FileOutputStream: [
@@ -674,6 +709,9 @@ native_methods =
             filepath = filename.jvm2js_str()
             try  # TODO: actually look at the mode
               _this.$file = fs.openSync filepath, 'r'
+              # also store the file handle in the file descriptor object
+              fd = _this.get_field rs, 'java/io/FileInputStream/fd'
+              fd.set_field rs, 'java/io/FileDescriptor/fd', _this.$file
               _this.$pos = 0
             catch e
               if e.code == 'ENOENT'
@@ -930,31 +968,110 @@ native_methods =
             rs.push rs.static_get {class:'java/lang/System',name:'props'}
             rs.static_put {class:'sun/misc/VM',name:'savedProps'}
       ]
+      # TODO: Go down the rabbit hole and create a fast heap implementation
+      # in JavaScript -- with and without typed arrays.
       Unsafe: [
         o 'addressSize()I', (rs, _this) -> 4 # either 4 or 8
         o 'allocateInstance(Ljava/lang/Class;)Ljava/lang/Object;', (rs, _this, cls) ->
             rs.init_object cls.$type.toClassString(), {}
         o 'allocateMemory(J)J', (rs, _this, size) ->
             next_addr = util.last(rs.mem_start_addrs)
-            rs.mem_blocks[next_addr] = new DataView new ArrayBuffer size
-            rs.mem_start_addrs.push next_addr + size
-            gLong.fromNumber next_addr
+            if DataView?
+              rs.mem_blocks[next_addr] = new DataView new ArrayBuffer size
+            else
+              # 1 byte per block. Wasteful, terrible, etc... but good for now.
+              # XXX: Stash allocation size here. Please hate me.
+              rs.mem_blocks[next_addr] = size
+              next_addr += 1
+              for i in [0...size] by 1
+                rs.mem_blocks[next_addr+i] = 0
+
+            rs.mem_start_addrs.push(next_addr + size)
+            return gLong.fromNumber(next_addr)
+        o 'copyMemory(Ljava/lang/Object;JLjava/lang/Object;JJ)V', (rs, _this, src_base, src_offset, dest_base, dest_offset, num_bytes) ->
+            # XXX assumes base object is an array if non-null
+            # TODO: optimize by copying chunks at a time
+            if src_base?
+              src_offset = src_offset.toNumber()
+              if dest_base?
+                # both are java arrays
+                arraycopy_no_check(src_base, src_offset, dest_base, dest_offset.toNumber(), num_bytes)
+              else
+                # src is an array, dest is a mem block
+                dest_addr = rs.block_addr(dest_offset)
+                if DataView?
+                  for i in [0...num_bytes] by 1
+                    rs.mem_blocks[dest_addr].setInt8(i, src_base.array[src_offset+i])
+                else
+                  for i in [0...num_bytes] by 1
+                    rs.mem_blocks[dest_addr+i] = src_base.array[src_offset+i]
+            else
+              src_addr = rs.block_addr(src_offset)
+              if dest_base?
+                # src is a mem block, dest is an array
+                dest_offset = dest_offset.toNumber()
+                if DataView?
+                  for i in [0...num_bytes] by 1
+                    dest_base.array[dest_offset+i] = rs.mem_blocks[src_addr].getInt8(i)
+                else
+                  for i in [0...num_bytes] by 1
+                    dest_base.array[dest_offset+i] = rs.mem_blocks[src_addr+i]
+              else
+                # both are mem blocks
+                dest_addr = rs.block_addr(dest_offset)
+                if DataView?
+                  for i in [0...num_bytes] by 1
+                    rs.mem_blocks[dest_addr].setInt8(i, rs.mem_blocks[src_addr].getInt8(i))
+                else
+                  for i in [0...num_bytes] by 1
+                    rs.mem_blocks[dest_addr+i] = rs.mem_blocks[src_addr+i]
         o 'setMemory(JJB)V', (rs, _this, address, bytes, value) ->
             block_addr = rs.block_addr(address)
             for i in [0...bytes] by 1
-              rs.mem_blocks[block_addr].setInt8(i, value)
-        o 'freeMemory(J)V', (rs, _this, address) -> # NOP
-            delete rs.mem_blocks[address.toNumber()]
+              if DataView?
+                rs.mem_blocks[block_addr].setInt8(i, value)
+              else
+                rs.mem_blocks[block_addr+i] = value
+            return
+        o 'freeMemory(J)V', (rs, _this, address) ->
+            if DataView?
+              delete rs.mem_blocks[address.toNumber()]
+            else
+              # XXX: Size will be just before address.
+              address = address.toNumber()
+              num_blocks = rs.mem_blocks[address-1]
+              for i in [0...num_blocks] by 1
+                delete rs.mem_blocks[address+i]
+              delete rs.mem_blocks[address-1]
+              # Restore to the actual start addr where size was.
+              address = address-1
             rs.mem_start_addrs.splice(rs.mem_start_addrs.indexOf(address), 1)
         o 'putLong(JJ)V', (rs, _this, address, value) ->
             block_addr = rs.block_addr(address)
             offset = address - block_addr
             # little endian
-            rs.mem_blocks[block_addr].setInt32(offset, value.getLowBits(), true)
-            rs.mem_blocks[block_addr].setInt32(offset + 4, value.getHighBits, true)
+            if DataView?
+              rs.mem_blocks[block_addr].setInt32(offset, value.getLowBits(), true)
+              rs.mem_blocks[block_addr].setInt32(offset + 4, value.getHighBits, true)
+            else
+              # Break up into 8 bytes. Hurray!
+              store_word = (rs_, address, word) ->
+                # Little endian
+                rs_.mem_blocks[address] = word & 0xFF
+                rs_.mem_blocks[address+1] = (word >>> 8) & 0xFF
+                rs_.mem_blocks[address+2] = (word >>> 16) & 0xFF
+                rs_.mem_blocks[address+3] = (word >>> 24) & 0xFF
+
+              store_word(rs, address, value.getLowBits())
+              store_word(rs, address+4, value.getHighBits())
+            return
         o 'getByte(J)B', (rs, _this, address) ->
             block_addr = rs.block_addr(address)
-            rs.mem_blocks[block_addr].getInt8(address - block_addr)
+            if DataView?
+              return rs.mem_blocks[block_addr].getInt8(address - block_addr)
+            else
+              # Blocks are bytes.
+              return rs.mem_blocks[block_addr]
         o 'arrayBaseOffset(Ljava/lang/Class;)I', (rs, _this, cls) -> 0
         o 'arrayIndexScale(Ljava/lang/Class;)I', (rs, _this, cls) -> 1
         o 'compareAndSwapObject(Ljava/lang/Object;JLjava/lang/Object;Ljava/lang/Object;)Z', unsafe_compare_and_swap
@@ -978,6 +1095,31 @@ native_methods =
         o 'defineClass(Ljava/lang/String;[BIILjava/lang/ClassLoader;Ljava/security/ProtectionDomain;)Ljava/lang/Class;', (rs, _this, name, bytes, offset, len, loader, pd) ->
             native_define_class rs, name, bytes, offset, len, loader
       ]
+    nio:
+      ch:
+        FileChannelImpl: [
+          # this poorly-named method actually specifies the page size for mmap
+          o 'initIDs()J', (rs) -> gLong.fromNumber(1024)  # arbitrary
+        ]
+        FileDispatcher: [
+          o 'init()V', (rs) -> # NOP
+          o 'read0(Ljava/io/FileDescriptor;JI)I', (rs, fd_obj, address, len) ->
+            # this is the same as the .$file attribute on FileInputStream
+            fd = fd_obj.get_field rs, 'java/io/FileDescriptor/fd'
+            # read upto len bytes and store into mmap'd buffer at address
+            block_addr = rs.block_addr(address)
+            buf = new Buffer len
+            bytes_read = fs.readSync(fd, buf, 0, len)
+            if DataView?
+              for i in [0...bytes_read] by 1
+                rs.mem_blocks[block_addr].setInt8(i, buf.readInt8(i))
+            else
+              for i in [0...bytes_read] by 1
+                rs.mem_blocks[block_addr+i] = buf.readInt8(i)
+            return bytes_read
+          o 'preClose0(Ljava/io/FileDescriptor;)V', (rs, fd_obj) ->
+            # NOP, I think the actual fs.close is called later. If not, NBD.
+        ]
     reflect:
       ConstantPool: [
         o 'getLongAt0(Ljava/lang/Object;I)J', (rs, _this, cp, idx) ->

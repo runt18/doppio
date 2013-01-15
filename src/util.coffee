@@ -1,4 +1,3 @@
-
 # pull in external modules
 gLong = require '../vendor/gLong.js'
 exceptions = require './exceptions'
@@ -14,10 +13,11 @@ root.INT_MIN = -root.INT_MAX - 1 # -2^31
 
 root.FLOAT_POS_INFINITY = Math.pow(2,128)
 root.FLOAT_NEG_INFINITY = -1*root.FLOAT_POS_INFINITY
-# Equivalent to bits 0x7fc00000 interpreted as a FP value. While NaN is a range,
-# this is the exact value used for Float.NaN in java.lang.Float and is returned
-# by opcodes that produce NaN.
-root.FLOAT_NaN = 5.104235503814077e+38
+root.FLOAT_POS_INFINITY_AS_INT = 0x7F800000
+root.FLOAT_NEG_INFINITY_AS_INT = -8388608
+# We use the JavaScript NaN as our NaN value, and convert it to
+# a NaN value in the SNaN range when an int equivalent is requested.
+root.FLOAT_NaN_AS_INT = 0x7fc00000
 
 root.int_mod = (rs, a, b) ->
   exceptions.java_throw rs, 'java/lang/ArithmeticException', '/ by zero' if b == 0
@@ -44,20 +44,32 @@ root.float2int = (a) ->
   else if a < root.INT_MIN then root.INT_MIN
   else a|0
 
-root.intbits2float = (uint32) ->
+root.intbits2float = (int32) ->
   if Int32Array?
-    i_view = new Int32Array [uint32]
+    i_view = new Int32Array [int32]
     f_view = new Float32Array i_view.buffer
     return f_view[0]
 
   # Fallback for older JS engines
-  sign = (uint32 &       0x80000000)>>>31
-  exponent = (uint32 &   0x7F800000)>>>23
-  significand = uint32 & 0x007FFFFF
+
+  # Map +/- infinity to JavaScript equivalents
+  if int32 == root.FLOAT_POS_INFINITY_AS_INT
+    return Number.POSITIVE_INFINITY
+  else if int32 == root.FLOAT_NEG_INFINITY_AS_INT
+    return Number.NEGATIVE_INFINITY
+
+  sign = (int32 &       0x80000000)>>>31
+  exponent = (int32 &   0x7F800000)>>>23
+  significand = int32 & 0x007FFFFF
   if exponent is 0  # we must denormalize!
     value = Math.pow(-1,sign)*significand*Math.pow(2,-149)
   else
     value = Math.pow(-1,sign)*(1+significand*Math.pow(2,-23))*Math.pow(2,exponent-127)
+
+  # NaN check
+  if value < root.FLOAT_NEG_INFINITY or value > root.FLOAT_POS_INFINITY
+    value = NaN
+
   return value
 
 root.longbits2double = (uint32_a, uint32_b) ->
@@ -71,27 +83,27 @@ root.longbits2double = (uint32_a, uint32_b) ->
   sign     = (uint32_a & 0x80000000)>>>31
   exponent = (uint32_a & 0x7FF00000)>>>20
   significand = root.lshift(uint32_a & 0x000FFFFF, 32) + uint32_b
+
+  # Special values!
+  return 0 if exponent is 0 and significand is 0
+  if exponent is 2047
+    if significand is 0
+      if sign is 1
+        return Number.NEGATIVE_INFINITY
+      return Number.POSITIVE_INFINITY
+    else return NaN
+
   if exponent is 0  # we must denormalize!
     value = Math.pow(-1,sign)*significand*Math.pow(2,-1074)
   else
     value = Math.pow(-1,sign)*(1+significand*Math.pow(2,-52))*Math.pow(2,exponent-1023)
   return value
 
-# Checks if the given float is NaN
-root.is_float_NaN = (a) ->
-  # A float is NaN if it is greater than or less than the infinity
-  # representation
-  return a > root.FLOAT_POS_INFINITY || a < root.FLOAT_NEG_INFINITY
-
-# Convenience method for opcodes; prevents 2 fcn calls per fp opcode.
-root.are_floats_NaN = (a, b) ->
-  return a > root.FLOAT_POS_INFINITY || a < root.FLOAT_NEG_INFINITY || b > root.FLOAT_POS_INFINITY || b < root.FLOAT_NEG_INFINITY
-
 # Call this ONLY on the result of two non-NaN numbers.
 root.wrap_float = (a) ->
-  return root.FLOAT_POS_INFINITY if a > 3.40282346638528860e+38
+  return Number.POSITIVE_INFINITY if a > 3.40282346638528860e+38
   return 0 if 0 < a < 1.40129846432481707e-45
-  return root.FLOAT_NEG_INFINITY if a < -3.40282346638528860e+38
+  return Number.NEGATIVE_INFINITY if a < -3.40282346638528860e+38
   return 0 if 0 > a > -1.40129846432481707e-45
   a
 
@@ -120,7 +132,10 @@ root.chars2js_str = (jvm_carr, offset, count) ->
 root.bytestr_to_array = (bytecode_string) ->
   (bytecode_string.charCodeAt(i) & 0xFF for i in [0...bytecode_string.length] by 1)
 
-root.array_to_bytestr = (bytecode_array) -> String.fromCharCode(bytecode_array...)
+root.array_to_bytestr = (bytecode_array) ->
+  # XXX: We'd like to use String.fromCharCode(bytecode_array...)
+  #  but that fails on Webkit with arrays longer than 2^31. See issue #129 for details.
+  return (String.fromCharCode(b) for b in bytecode_array).join ''
 
 root.parse_flags = (flag_byte) -> {
     public:       flag_byte & 0x1
