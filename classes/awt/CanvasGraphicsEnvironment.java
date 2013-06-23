@@ -19,13 +19,17 @@ public class CanvasGraphicsEnvironment extends SunGraphicsEnvironment {
     public native String[] getAvailableFontFamilyNames();
 
     protected int getNumScreens() { return 1; }
-    protected native GraphicsDevice makeScreenDevice(int screennum);
-    protected native FontConfiguration createFontConfiguration();
 
-    public FontConfiguration createFontConfiguration(boolean preferLocaleFonts,
-                                                     boolean preferPropFonts) {
-      // ignore arguments for simplicity
-      return createFontConfiguration();
+    protected native GraphicsDevice makeScreenDevice(int screennum);
+
+    protected FontConfiguration createFontConfiguration(){
+        return new DoppioFontConfiguration(this);
+    }
+
+    @Override
+    public FontConfiguration createFontConfiguration(
+        boolean preferLocaleFonts, boolean preferPropFonts) {
+        return createFontConfiguration();
     }
 
     public boolean isDisplayLocal() { return true; }
