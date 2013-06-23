@@ -6,11 +6,13 @@ import sun.awt.*;
 import sun.java2d.*;
 
 public class CanvasGraphicsEnvironment extends SunGraphicsEnvironment {
-    public native GraphicsDevice[] getScreenDevices()
-        throws HeadlessException;
+    // public native GraphicsDevice[] getScreenDevices()
+    //     throws HeadlessException;
 
-    public native GraphicsDevice getDefaultScreenDevice()
-        throws HeadlessException;
+    // public native GraphicsDevice getDefaultScreenDevice()
+    //     throws HeadlessException {
+
+    // }
 
     public native Graphics2D createGraphics(BufferedImage img);
 
@@ -20,7 +22,9 @@ public class CanvasGraphicsEnvironment extends SunGraphicsEnvironment {
 
     protected int getNumScreens() { return 1; }
 
-    protected native GraphicsDevice makeScreenDevice(int screennum);
+    protected GraphicsDevice makeScreenDevice(int screennum) {
+        return new DoppioGraphicsDevice(screennum);
+    }
 
     protected FontConfiguration createFontConfiguration(){
         return new DoppioFontConfiguration(this);
