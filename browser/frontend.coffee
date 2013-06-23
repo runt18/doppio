@@ -246,7 +246,11 @@ commands =
         controller.reprompt()
     return null  # no reprompt, because we handle it ourselves
   java: (args, cb) ->
-    usage_msg = "Usage: java [-classpath path1:path2...] [-Xlog trace|debug] class [args...]"
+    usage_msg = """Usage: java [opts] class [args...]
+      Options:
+        Classpath: -classpath path1:path2...
+        Log:       -Xlog [0-10]|vtrace|trace|debug|error
+      """
 
     # There must be at least a class to run
     if args.length is 0
