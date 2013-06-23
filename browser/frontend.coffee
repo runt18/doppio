@@ -253,8 +253,7 @@ commands =
       """
 
     # There must be at least a class to run
-    if args.length is 0
-      return usage_msg
+    return usage_msg if args.length is 0
 
     # Quick, custom option parser since there's no optimist for the browser
 
@@ -288,11 +287,10 @@ commands =
           args.splice(idx, opt.args + 1)
 
     # Need at least one arg after flags have been removed
-    if args.length is 0
-      return usage_msg
+    return usage_msg if args.length is 0
 
-    classpath = opts[0].value
-    log = opts[1].value
+    # Extract values
+    [{value: classpath}, {value: log}] = opts
 
     if classpath
       jvm.set_classpath '/home/doppio/vendor/classes/', classpath
