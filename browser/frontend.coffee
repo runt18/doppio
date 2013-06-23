@@ -246,19 +246,64 @@ commands =
         controller.reprompt()
     return null  # no reprompt, because we handle it ourselves
   java: (args, cb) ->
-    if !args[0]? or (args[0] == '-classpath' and args.length < 3)
-      return "Usage: java [-classpath path1:path2...] class [args...]"
-    if args[0] == '-classpath'
-      jvm.set_classpath '/home/doppio/vendor/classes/', args[1]
-      class_name = args[2]
-      class_args = args[3..]
+    valid_args = true
+
+    classpath = null
+    log = null
+
+    if args.length is 0
+      valid_args = false
+    else
+      classpath_idx = args.indexOf '-classpath'
+      if classpath_idx isnt -1
+        if args.length < classpath_idx + 1
+          valid_args = false
+        else
+          classpath = args[classpath_idx + 1]
+
+      log_idx = args.indexOf '-Xlog'
+      if log_idx isnt -1
+        if args.length < log_idx + 1
+          valid_args = false
+        else
+          log = args[log_idx + 1]
+          valid_args = false unless log in ['trace', 'debug']
+
+
+    if classpath
+      args.splice(classpath_idx, 2)
+    if log
+      args.splice(log_idx, 2)
+
+    if args.length is 0
+      valid_args = false
+
+    usage_msg = "Usage: java [-classpath path1:path2...] [-Xlog trace|debug] class [args...]"
+    return usage_msg unless valid_args
+
+    if classpath
+      jvm.set_classpath '/home/doppio/vendor/classes/', classpath
     else
       jvm.set_classpath '/home/doppio/vendor/classes/', './'
-      class_name = args[0]
-      class_args = args[1..]
+
+    class_name = args[0]
+    class_args = args[1..]
+
+    logging.log_level =
+      if log?
+        if /[0-9]+/.test log
+          log + 0
+        else
+          level = logging[log?.toUpperCase()]
+          throw 'Unrecognized log level: should be one of [0-10]|vtrace|trace|debug|error.' unless level?
+          level
+      else
+        logging.ERROR
+
     rs = new runtime.RuntimeState(stdout, user_input, bs_cl)
     jvm.run_class(rs, class_name, class_args, -> controller.reprompt())
     return null  # no reprompt, because we handle it ourselves
+
   test: (args) ->
     return "Usage: test all|[class(es) to test]" unless args[0]?
     # method signature is:
