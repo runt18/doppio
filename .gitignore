@@ -20,3 +20,5 @@ vendor/java_home
 vendor/jars/
 tools/preload
 classes/test/failures.txt
+*.iml
+.idea
