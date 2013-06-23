@@ -246,40 +246,49 @@ commands =
         controller.reprompt()
     return null  # no reprompt, because we handle it ourselves
   java: (args, cb) ->
-    valid_args = true
-
-    classpath = null
-    log = null
-
-    if args.length is 0
-      valid_args = false
-    else
-      classpath_idx = args.indexOf '-classpath'
-      if classpath_idx isnt -1
-        if args.length < classpath_idx + 1
-          valid_args = false
-        else
-          classpath = args[classpath_idx + 1]
-
-      log_idx = args.indexOf '-Xlog'
-      if log_idx isnt -1
-        if args.length < log_idx + 1
-          valid_args = false
-        else
-          log = args[log_idx + 1]
-          valid_args = false unless log in ['trace', 'debug']
-
-
-    if classpath
-      args.splice(classpath_idx, 2)
-    if log
-      args.splice(log_idx, 2)
-
-    if args.length is 0
-      valid_args = false
-
     usage_msg = "Usage: java [-classpath path1:path2...] [-Xlog trace|debug] class [args...]"
-    return usage_msg unless valid_args
+
+    # There must be at least a class to run
+    if args.length is 0
+      return usage_msg
+
+    # Quick, custom option parser since there's no optimist for the browser
+
+    # Declare optional parameters
+    opts = [
+      {
+        name: 'classpath'
+        args: 1
+      },
+      {
+        name: 'Xlog'
+        args: 1
+      }
+    ]
+
+    # For each optional parameter
+    for opt in opts
+      # Get its position in the args array
+      idx = args.indexOf '-' + opt.name
+      # Check whether it exists
+      if idx isnt -1
+        # Check that there are enough values following it
+        if args.length < idx + opt.args
+          opt.value = null
+          return usage_msg
+        else
+          # XXX: doesn't support flags with more than one argument
+          # Save the value
+          opt.value = args[idx + 1]
+          # Remove the flag and its value from the array
+          args.splice(idx, opt.args + 1)
+
+    # Need at least one arg after flags have been removed
+    if args.length is 0
+      return usage_msg
+
+    classpath = opts[0].value
+    log = opts[1].value
 
     if classpath
       jvm.set_classpath '/home/doppio/vendor/classes/', classpath
@@ -289,6 +298,7 @@ commands =
     class_name = args[0]
     class_args = args[1..]
 
+    # XXX: Copied from runner.coffee. DRY this?
     logging.log_level =
       if log?
         if /[0-9]+/.test log
