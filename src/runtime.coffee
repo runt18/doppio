@@ -225,8 +225,11 @@ class root.RuntimeState
     suffix = if suffix? then "-#{suffix}" else ''
     fs = node?.fs ? require 'fs'
     # 4th parameter to writeFileSync ensures this is not stored in localStorage in the browser
-    fs.writeFileSync "./core-#{thread_name @, @curr_thread}#{suffix}.json",
-      (JSON.stringify snapshot.serialize()), 'utf8', true
+    if node
+      console.log snapshot.serialize()
+    else
+      fs.writeFileSync "./core-#{thread_name @, @curr_thread}#{suffix}.json",
+        (JSON.stringify snapshot.serialize()), 'utf8', true
 
   choose_next_thread: (blacklist, cb) ->
     unless blacklist?

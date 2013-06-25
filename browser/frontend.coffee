@@ -266,6 +266,10 @@ commands =
       {
         name: 'Xlog'
         args: 1
+      },
+      {
+        name: 'Xdump-state'
+        args: 0
       }
     ]
 
@@ -281,21 +285,27 @@ commands =
           return usage_msg
         else
           # XXX: doesn't support flags with more than one argument
-          # Save the value
-          opt.value = args[idx + 1]
-          # Remove the flag and its value from the array
+          if opt.args is 0
+            # Make a record that the flag is present
+            opt.value = true
+          else
+            # Save the value
+            opt.value = args[idx + 1]
+
+          # Remove the flag and any values from the array
           args.splice(idx, opt.args + 1)
 
     # Need at least one arg after flags have been removed
     return usage_msg if args.length is 0
 
     # Extract values
-    [{value: classpath}, {value: log}] = opts
+    [
+      {value: classpath},
+      {value: log},
+      {value: dump_state}
+    ] = opts
 
-    if classpath
-      jvm.set_classpath '/home/doppio/vendor/classes/', classpath
-    else
-      jvm.set_classpath '/home/doppio/vendor/classes/', './'
+    jvm.set_classpath '/home/doppio/vendor/classes/', if classpath then classpath else './'
 
     class_name = args[0]
     class_args = args[1..]
@@ -313,7 +323,13 @@ commands =
         logging.ERROR
 
     rs = new runtime.RuntimeState(stdout, user_input, bs_cl)
-    jvm.run_class(rs, class_name, class_args, -> controller.reprompt())
+
+    cb = ->
+      rs.dump_state() if dump_state
+      controller.reprompt()
+
+    jvm.run_class(rs, class_name, class_args, cb)
+
     return null  # no reprompt, because we handle it ourselves
 
   test: (args) ->
