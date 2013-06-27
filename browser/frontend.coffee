@@ -305,6 +305,7 @@ commands =
       {value: dump_state}
     ] = opts
 
+    jvm.dump_state = dump_state
     jvm.set_classpath '/home/doppio/vendor/classes/', if classpath then classpath else './'
 
     class_name = args[0]
@@ -324,13 +325,10 @@ commands =
 
     rs = new runtime.RuntimeState(stdout, user_input, bs_cl)
 
-    cb = ->
-      rs.dump_state() if dump_state
-      controller.reprompt()
+    jvm.run_class(rs, class_name, class_args, -> controller.reprompt())
 
-    jvm.run_class(rs, class_name, class_args, cb)
-
-    return null  # no reprompt, because we handle it ourselves
+    # no reprompt, because we handle it ourselves
+    return null
 
   test: (args) ->
     return "Usage: test all|[class(es) to test]" unless args[0]?
