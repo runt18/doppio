@@ -9,7 +9,7 @@ util = require './util'
 {log,vtrace,trace,debug,error} = require './logging'
 {YieldIOException,ReturnException,JavaException} = require './exceptions'
 {JavaObject,JavaArray,thread_name} = require './java_object'
-jvm = require './jvm'
+jvm = null
 process = node?.process ? global.process
 
 class root.CallStack
@@ -73,6 +73,9 @@ class root.RuntimeState
   run_count = 0
 
   constructor: (@print, @_async_input, @bcl) ->
+    # XXX: Because we do manual dependency resolution in the browser, and this
+    #      is only needed for dump_state.
+    jvm = require './jvm'
     @input_buffer = []
     @bcl.reset()
     @startup_time = gLong.fromNumber (new Date).getTime()
@@ -240,6 +243,9 @@ class root.RuntimeState
     wakeup_time = @curr_thread.wakeup_time ? Infinity
     current_time = (new Date).getTime()
     for t in @thread_pool when t isnt @curr_thread and t.$isAlive
+      if @parked t
+        continue if t.$park_timeout > current_time
+        @unpark t
       continue if t in blacklist
       if t.wakeup_time > current_time
         wakeup_time = t.wakeup_time if t.wakeup_time < wakeup_time
@@ -274,6 +280,29 @@ class root.RuntimeState
     # Note that we don't throw a ReturnException here, so callers need to
     # yield the JVM execution themselves.
     return
+
+  init_park_state: (thread) ->
+    thread.$park_count ?= 0
+    thread.$park_timeout ?= Infinity
+
+  park: (thread, timeout) ->
+    @init_park_state thread
+    thread.$park_count++
+    thread.$park_timeout = timeout
+    debug "TE(park): parking #{thread_name @, thread} (count: #{thread.$park_count}, timeout: #{thread.$park_timeout})"
+    # Only choose a new thread if this one will become blocked
+    @choose_next_thread null, ((nt) => @yield(nt)) if @parked thread
+
+  unpark: (thread) ->
+    @init_park_state thread
+    debug "TE(unpark): unparking #{thread_name @, thread}"
+    thread.$park_count--
+    thread.$park_timeout = Infinity
+
+    # Yield to the unparked thread if it should be unblocked
+    @yield(thread) unless @parked thread
+
+  parked: (thread) -> thread.$park_count > 0
 
   curr_frame: -> @meta_stack().curr_frame()
 
@@ -352,6 +381,7 @@ class root.RuntimeState
     UNSAFE? || throw new Error "Invalid memory access at #{address}"
 
   handle_toplevel_exception: (e, no_threads, done_cb) ->
+    @unusual_termination = true  # Used for exit codes in console frontend.
     if e.toplevel_catch_handler?
       @run_until_finished (=> e.toplevel_catch_handler(@)), no_threads, done_cb
     else
