@@ -1076,7 +1076,7 @@ native_methods =
     font:
       FontManager: [
         # TODO: this may be a no-op, but may be important
-        # o 'getFontConfig(Ljava/lang/String;[Lsun/font/FontManager$FontConfigInfo;)V', ->
+        o 'getFontConfig(Ljava/lang/String;[Lsun/font/FontManager$FontConfigInfo;)V', ->
       ]
       FreetypeFontScaler: [
         o 'initIDs(Ljava/lang/Class;)V', ->  # nop
