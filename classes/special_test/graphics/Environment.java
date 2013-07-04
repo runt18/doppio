@@ -4,7 +4,7 @@ import java.awt.*;
 
 public class Environment {
     public static void main(String[] args){
-        GraphicsConfiguration ge = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
-        System.out.println(ge);
+        GraphicsConfiguration gc = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+        System.out.println(gc);
     }
 }
