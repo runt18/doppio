@@ -1,5 +1,7 @@
 package classes.awt;
 
+import classes.awt.DoppioGraphicsConfiguration;
+
 import java.awt.*;
 
 public class DoppioGraphicsDevice extends GraphicsDevice {
@@ -22,12 +24,15 @@ public class DoppioGraphicsDevice extends GraphicsDevice {
 
     @Override
     public GraphicsConfiguration[] getConfigurations() {
-        return new GraphicsConfiguration[0];
+        if (this.configs == null) {
+            this.makeConfigurations();
+        }
+        return this.configs;
     }
 
     @Override
     public GraphicsConfiguration getDefaultConfiguration() {
-        return null;
+        return getConfigurations()[0];
     }
 
     public int getNumConfigs(int screen){
@@ -37,6 +42,6 @@ public class DoppioGraphicsDevice extends GraphicsDevice {
     private void makeConfigurations() {
         int num = getNumConfigs(screen);
         this.configs = new GraphicsConfiguration[num];
-        this.configs[0] = new DoppioGraphicsConfiguration();
+        this.configs[0] = new DoppioGraphicsConfiguration(this);
     }
 }

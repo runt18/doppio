@@ -1,15 +1,23 @@
 package classes.awt;
 
+import classes.awt.DoppioGraphicsDevice;
+
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
 
 public class DoppioGraphicsConfiguration extends GraphicsConfiguration {
+    private DoppioGraphicsDevice device;
+
+
+    public DoppioGraphicsConfiguration(DoppioGraphicsDevice device){
+        this.device = device;
+    }
 
     @Override
     public GraphicsDevice getDevice() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return device;
     }
 
     @Override
