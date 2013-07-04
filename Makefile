@@ -138,6 +138,7 @@ dev: dependencies build/dev build/dev/browser \
 	build/dev/browser/mini-rt.tar build/dev/classes build/dev/vendor
 	rsync $(filter %.js,$(dev_BROWSER_SRCS)) build/dev/vendor
 	rsync browser/*.svg browser/*.png build/dev/browser/
+	cp -R browser/core_viewer build/dev/browser/
 	cd build/dev; $(COFFEEC) $(DOPPIO_DIR)/tools/gen_dir_listings.coffee > browser/listings.json
 
 release-cli: $(CLI_SRCS:%.coffee=build/release/%.js) \
