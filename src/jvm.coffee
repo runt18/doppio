@@ -49,6 +49,7 @@ root.reset_system_properties = ->
     # true if we're using the console frontend
     'java.awt.headless': (not node?).toString()
     'java.awt.graphicsenv': 'classes.awt.CanvasGraphicsEnvironment'
+    'awt.toolkit': 'classes.awt.DoppioToolkit'
 
     # hack for sun6javac, avoid ZipFileIndex shenanigans
     'useJavaUtilZip': 'true'
