@@ -198,6 +198,8 @@ unsafe_memcpy = (rs, src_base, src_offset, dest_base, dest_offset, num_bytes) ->
       else
         for i in [0...num_bytes] by 1
           rs.mem_blocks[dest_addr+i] = rs.mem_blocks[src_addr+i]
+  # Avoid CoffeeScript accumulation nonsense.
+  return
 
 unsafe_compare_and_swap = (rs, _this, obj, offset, expected, x) ->
   actual = obj.get_field_from_offset rs, offset
@@ -802,7 +804,7 @@ native_methods =
             fd = fd_obj.get_field rs, 'Ljava/io/FileDescriptor;fd'
             rs.java_throw rs.get_bs_class('Ljava/io/IOException;'), "Bad file descriptor" if fd is -1
             unless fd is 0
-              bytes_left = fs.fstatSync(file).size - _this.$pos
+              bytes_left = fs.fstatSync(fd).size - _this.$pos
               to_skip = Math.min(n_bytes.toNumber(), bytes_left)
               _this.$pos += to_skip
               return gLong.fromNumber(to_skip)
@@ -914,11 +916,11 @@ native_methods =
                 else
                   fs.open filepath, 'w', (err, fd) ->
                     if err?
-                      except_cb -> rs.java_throw rs.get_bs_class('Ljava/io/IOException;'), e.message
+                      except_cb -> rs.java_throw rs.get_bs_class('Ljava/io/IOException;'), err.message
                     else
                       fs.close fd, (err) ->
                         if err?
-                          except_cb -> rs.java_throw rs.get_bs_class('Ljava/io/IOException;'), e.message
+                          except_cb -> rs.java_throw rs.get_bs_class('Ljava/io/IOException;'), err.message
                         else
                           resume_cb true
         o 'createFileExclusively(Ljava/lang/String;Z)Z', (rs, _this, path) ->  # Apple-java version
@@ -930,11 +932,11 @@ native_methods =
                 else
                   fs.open filepath, 'w', (err, fd) ->
                     if err?
-                      except_cb -> rs.java_throw rs.get_bs_class('Ljava/io/IOException;'), e.message
+                      except_cb -> rs.java_throw rs.get_bs_class('Ljava/io/IOException;'), err.message
                     else
                       fs.close fd, (err) ->
                         if err?
-                          except_cb -> rs.java_throw rs.get_bs_class('Ljava/io/IOException;'), e.message
+                          except_cb -> rs.java_throw rs.get_bs_class('Ljava/io/IOException;'), err.message
                         else
                           resume_cb true
         o 'delete0(Ljava/io/File;)Z', (rs, _this, file) ->
@@ -975,7 +977,7 @@ native_methods =
                 unless stats?
                   resume_cb gLong.ZERO, null
                 else
-                  resume_cb gLong.fromNumber (new Date(stats.mtime)).getTime(), null
+                  resume_cb gLong.fromNumber((new Date(stats.mtime)).getTime()), null
         o 'setLastModifiedTime(Ljava/io/File;J)Z', (rs, _this, file, time) ->
             mtime = time.toNumber()
             atime = (new Date).getTime()

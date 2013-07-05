@@ -96,7 +96,7 @@ if require.main == module
       if /[0-9]+/.test argv.non_standard.log
         argv.non_standard.log + 0
       else
-        level = logging[argv.non_standard.log?.toUpperCase()]
+        level = logging[argv.non_standard.log.toUpperCase()]
         throw 'Unrecognized log level: should be one of [0-10]|vtrace|trace|debug|error.' unless level?
         level
     else
@@ -155,6 +155,7 @@ if require.main == module
                 break
             catch e
               # Do nothing; iterate.
+        return  # avoid accumulating results
     when argv.non_standard['count-logs']
       count = 0
       old_log = console.log
