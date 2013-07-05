@@ -42,4 +42,7 @@ public class DoppioFontConfiguration extends FontConfiguration {
         return "test";
     }
 
+    public String getVersion(){
+        return "test";
+    }
 }
