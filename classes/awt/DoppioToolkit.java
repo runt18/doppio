@@ -69,7 +69,7 @@ public class DoppioToolkit extends Toolkit {
 
     @Override
     protected FramePeer createFrame(Frame frame) throws HeadlessException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return new DoppioFramePeer();
     }
 
     @Override
