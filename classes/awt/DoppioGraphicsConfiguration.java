@@ -47,6 +47,6 @@ public class DoppioGraphicsConfiguration extends GraphicsConfiguration {
 
     @Override
     public Rectangle getBounds() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return new Rectangle(0, 0, 100, 100);
     }
 }
