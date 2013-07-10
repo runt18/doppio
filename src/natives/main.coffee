@@ -1088,6 +1088,7 @@ native_methods =
             null # XXX may not be correct
       ]
   sun:
+    awt: {}
     font:
       FontManager: [
         # TODO: this may be a no-op, but may be important
