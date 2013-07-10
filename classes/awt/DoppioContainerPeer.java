@@ -47,6 +47,6 @@ public class DoppioContainerPeer extends DoppioComponentPeer implements Containe
 
     @Override
     public Insets insets() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return new Insets(0, 0, 0, 0);
     }
 }
