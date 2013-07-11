@@ -263,11 +263,7 @@ create_stack_trace = (rs, throwable) ->
 
 native_methods =
   classes:
-    awt:
-      CanvasGraphicsEnvironment: [
-        # TODO: implement this
-        #o 'createFontConfiguration()Lsun/awt/FontConfiguration;', (rs) ->
-      ]
+    awt: {}
     doppio:
       JavaScript: [
         o 'eval(Ljava/lang/String;)Ljava/lang/String;', (rs, to_eval) ->
