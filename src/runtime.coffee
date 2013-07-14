@@ -227,12 +227,15 @@ class root.RuntimeState
   dump_state: (snapshot=@meta_stack().snap(), suffix) ->
     suffix = if suffix? then "-#{suffix}" else ''
     fs = node?.fs ? require 'fs'
-    # 4th parameter to writeFileSync ensures this is not stored in localStorage in the browser
+
+    serialized = snapshot.serialize()
+
     if node
-      console.log snapshot.serialize()
+      window.core_dump = serialized
     else
+      # 4th parameter to writeFileSync ensures this is not stored in localStorage in the browser
       fs.writeFileSync "./core-#{thread_name @, @curr_thread}#{suffix}.json",
-        (JSON.stringify snapshot.serialize()), 'utf8', true
+        (JSON.stringify serialized), 'utf8', true
 
   choose_next_thread: (blacklist, cb) ->
     unless blacklist?
