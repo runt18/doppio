@@ -27,9 +27,7 @@ native_methods.classes.awt.CanvasGraphicsEnvironment = [
               # XXX: uses the hack for calling call_bytecode from within an async_op
               except(-> success(rs.call_bytecode(g2d_cls, cons, args, success2, except2)))
             ),
-            ((e) ->
-              console.log(e)
-            )
+            except
           )
         )
       )
