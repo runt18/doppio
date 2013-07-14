@@ -25,7 +25,7 @@ native_methods.classes.awt.CanvasGraphicsEnvironment = [
               args = []
               # Call the constructor
               # XXX: uses the hack for calling call_bytecode from within an async_op
-              except(-> success(rs.call_bytecode(g2d_cls, cons, args, success2, except2)))
+              except(-> rs.call_bytecode(g2d_cls, cons, args, success2, except2))
             ),
             except
           )
