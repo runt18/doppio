@@ -1,4 +1,4 @@
-package classes.special_test.graphics;
+package classes.graphics;
 
 import sun.awt.FontConfiguration;
 import classes.awt.CanvasGraphicsEnvironment;

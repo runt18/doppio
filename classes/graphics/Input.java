@@ -1,7 +1,7 @@
 // Test case demonstrating a component that can react to user input
 // (a text field) and adding custom events to a component
 
-package classes.special_test.graphics;
+package classes.graphics;
 
 import javax.swing.SwingUtilities;
 import javax.swing.JFrame;

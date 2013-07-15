@@ -1,7 +1,7 @@
 // Test case demonstrating adding a simple component (a text label)
 // to a window
 
-package classes.special_test.graphics;
+package classes.graphics;
 
 import java.awt.Frame;
 import java.awt.Label;

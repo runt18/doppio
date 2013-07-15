@@ -1,6 +1,6 @@
 // A test case demonstrating drawing arbitrary pixel data to a component
 
-package classes.special_test.graphics;
+package classes.graphics;
 
 import javax.swing.SwingUtilities;
 import javax.swing.JFrame;
