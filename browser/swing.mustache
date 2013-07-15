@@ -78,12 +78,19 @@
     <div id='console'><div id="consoleUnderlay"><img src="browser/coffee.png"/></div></div>
   </div>
 
-  <div id="viewer">
-    <canvas id="renderer"></canvas>
-  </div>
+  <div id="viewer"></div>
 </div>
 {{#release}}
 <script type="text/javascript" src="ace.js"></script>
 {{/release}}
+
+
+<script type="x-template" id="window-tmpl">
+  <div class="swing-window">
+    <span class="title"><%= title %></span>
+    <canvas class="renderer" height="300px", width="300px"></canvas>
+  </div>
+</script>
+
 </body>
 </html>

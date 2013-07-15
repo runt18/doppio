@@ -227,15 +227,17 @@ location.origin = location.origin or "#{location.protocol}//#{location.host}"
 
 commands =
   draw: ->
-    $c = $('#renderer')
-    $c.attr(height: 300, width: 300)
+    wndw = $(_.template($('#window-tmpl').html(), {title: 'Test'}))
+    viewer = $('#viewer')
+    canvas = wndw.find('.renderer')
+    c = canvas[0].getContext('2d')
+    viewer.width(canvas.attr('width'))
+    viewer.append(wndw)
 
-    c = $c[0]
 
-    ctx = c.getContext('2d')
-    ctx.moveTo(50, 50)
-    ctx.lineTo(200, 200)
-    ctx.stroke()
+    c.moveTo(50, 50)
+    c.lineTo(200, 200)
+    c.stroke()
 
     controller.reprompt()
     return null
