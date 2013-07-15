@@ -27,13 +27,15 @@ CLASSES := $(SOURCES:.java=.class)
 # note: TESTS files never get made, but we use them for make rules
 TESTS   := $(SOURCES:.java=.test)
 
-DEMO_SRCS    := $(wildcard classes/demo/*.java)
-DEMO_CLASSES := $(DEMO_SRCS:.java=.class)
-UTIL_SRCS    := $(wildcard classes/util/*.java)
-UTIL_CLASSES := $(UTIL_SRCS:.java=.class)
+DEMO_SRCS     := $(wildcard classes/demo/*.java)
+DEMO_CLASSES  := $(DEMO_SRCS:.java=.class)
+UTIL_SRCS     := $(wildcard classes/util/*.java)
+UTIL_CLASSES  := $(UTIL_SRCS:.java=.class)
 # native stubs for our own implementations
-LIB_SRCS     := $(wildcard classes/awt/*.java) $(wildcard classes/doppio/*.java)
-LIB_CLASSES  := $(LIB_SRCS:.java=.class)
+LIB_SRCS      := $(wildcard classes/awt/*.java) $(wildcard classes/doppio/*.java)
+LIB_CLASSES   := $(LIB_SRCS:.java=.class)
+SWING_SRCS    := $(wildcard classes/graphics/*.java)
+SWING_CLASSES := $(SWING_SRCS:.java=.class)
 
 # HTML
 BROWSER_TEMPLATES := $(wildcard browser/[^_]*.mustache)
@@ -135,14 +137,12 @@ release benchmark: %: dependencies build/% build/%/browser \
 dev: dependencies build/dev build/dev/browser \
 	$(patsubst %.coffee,build/dev/%.js,$(filter %.coffee,$(dev_BROWSER_SRCS))) \
 	build/dev/browser/style.css build/dev/browser/swing.css build/dev/index.html build/dev/favicon.ico $(DEMO_CLASSES) \
-	build/dev/browser/mini-rt.tar build/dev/classes build/dev/vendor
-
-	javac -bootclasspath vendor/classes/ classes/special_test/graphics/*.java
-	javac -bootclasspath vendor/classes/ classes/awt/*.java
+	build/dev/browser/mini-rt.tar build/dev/classes build/dev/vendor \
+	$(SWING_CLASSES) $(LIB_CLASSES)
 
 	rsync $(filter %.js,$(dev_BROWSER_SRCS)) build/dev/vendor
 	rsync browser/*.svg browser/*.png build/dev/browser/
-	cp browser/core_viewer/core_viewer.css build/dev/browser/core_viewer
+	rsync browser/core_viewer/core_viewer.css build/dev/browser/core_viewer/
 	coffee -c -o build/dev/browser/core_viewer browser/core_viewer/core_viewer.coffee
 	cp browser/core_viewer.html build/dev
 
