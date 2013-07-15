@@ -137,6 +137,9 @@ dev: dependencies build/dev build/dev/browser \
 	build/dev/browser/style.css build/dev/browser/swing.css build/dev/index.html build/dev/favicon.ico $(DEMO_CLASSES) \
 	build/dev/browser/mini-rt.tar build/dev/classes build/dev/vendor
 
+	javac -bootclasspath vendor/classes/ classes/special_test/graphics/*.java
+	javac -bootclasspath vendor/classes/ classes/awt/*.java
+
 	rsync $(filter %.js,$(dev_BROWSER_SRCS)) build/dev/vendor
 	rsync browser/*.svg browser/*.png build/dev/browser/
 	cp browser/core_viewer/core_viewer.css build/dev/browser/core_viewer
@@ -145,6 +148,7 @@ dev: dependencies build/dev build/dev/browser \
 
 	browser/render.coffee swing > build/dev/swing.html
 	rsync browser/demo.css browser/swing.css build/dev/browser/
+
 
 	cd build/dev; $(COFFEEC) $(DOPPIO_DIR)/tools/gen_dir_listings.coffee > browser/listings.json
 
