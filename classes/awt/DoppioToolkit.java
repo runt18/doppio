@@ -34,7 +34,7 @@ public class DoppioToolkit extends Toolkit {
 
     @Override
     protected LabelPeer createLabel(Label label) throws HeadlessException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return new DoppioLabelPeer();
     }
 
     @Override
