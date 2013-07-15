@@ -1,0 +1,17 @@
+html, body, #main, #console {
+    height: 100%;
+}
+
+#main {
+    margin: 0;
+    width: 100%;
+}
+
+#editor, #viewer {
+    float: left;
+    width: 50%;
+    height: 100%;
+}
+
+#viewer {
+}

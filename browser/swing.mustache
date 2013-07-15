@@ -4,6 +4,7 @@
   <title>Doppio: A JVM in Coffeescript</title>
   <link href='http://fonts.googleapis.com/css?family=Bitter' rel='stylesheet' type='text/css'>
   <link rel='stylesheet' type="text/css" href="browser/style.css">
+  <link rel='stylesheet' type="text/css" href="browser/swing.css">
 {{#release}}
   <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
   <script type="text/javascript" src="compressed.js"></script>
@@ -61,19 +62,25 @@
 {{> _navbar}}
 
 <div id='main'>
-  <div id='ide' style='display:none'>
-    <div id='source'></div>
-    <!-- the Ace editor affects document flow weirdly, hence this hack -->
-    <div style='height:70%'></div>
-    <form class='form-inline' style='margin: 8px 0 3px 0;'>
-      <label for='filename' class='control-label'>Save As:</label>
-      <input type='text' id='filename' class='input-xlarge'/>
-      <button id='save_btn' class='btn btn-mini btn-primary'>Save &amp; Close</button>
-      <button id='close_btn' class='btn btn-mini btn-primary'>Close Without Saving</button>
-    </form>
+  <div id="editor">
+    <div id='ide' style='display:none'>
+      <div id='source'></div>
+      <!-- the Ace editor affects document flow weirdly, hence this hack -->
+      <div style='height:70%'></div>
+      <form class='form-inline' style='margin: 8px 0 3px 0;'>
+        <label for='filename' class='control-label'>Save As:</label>
+        <input type='text' id='filename' class='input-xlarge'/>
+        <button id='save_btn' class='btn btn-mini btn-primary'>Save &amp; Close</button>
+        <button id='close_btn' class='btn btn-mini btn-primary'>Close Without Saving</button>
+      </form>
+    </div>
+
+    <div id='console'><div id="consoleUnderlay"><img src="browser/coffee.png"/></div></div>
   </div>
 
-  <div id='console'><div id="consoleUnderlay"><img src="browser/coffee.png"/></div></div>
+  <div id="viewer">
+    <canvas id="renderer"></canvas>
+  </div>
 </div>
 {{#release}}
 <script type="text/javascript" src="ace.js"></script>

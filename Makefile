@@ -134,7 +134,7 @@ release benchmark: %: dependencies build/% build/%/browser \
 # dev: unoptimized build
 dev: dependencies build/dev build/dev/browser \
 	$(patsubst %.coffee,build/dev/%.js,$(filter %.coffee,$(dev_BROWSER_SRCS))) \
-	build/dev/browser/style.css build/dev/index.html build/dev/favicon.ico $(DEMO_CLASSES) \
+	build/dev/browser/style.css build/dev/browser/swing.css build/dev/index.html build/dev/favicon.ico $(DEMO_CLASSES) \
 	build/dev/browser/mini-rt.tar build/dev/classes build/dev/vendor
 
 	rsync $(filter %.js,$(dev_BROWSER_SRCS)) build/dev/vendor
@@ -142,6 +142,9 @@ dev: dependencies build/dev build/dev/browser \
 	cp browser/core_viewer/core_viewer.css build/dev/browser/core_viewer
 	coffee -c -o build/dev/browser/core_viewer browser/core_viewer/core_viewer.coffee
 	cp browser/core_viewer.html build/dev
+
+	browser/render.coffee swing > build/dev/swing.html
+	rsync browser/demo.css browser/swing.css build/dev/browser/
 
 	cd build/dev; $(COFFEEC) $(DOPPIO_DIR)/tools/gen_dir_listings.coffee > browser/listings.json
 
@@ -252,7 +255,7 @@ build/release/ace.js build/dev/ace.js build/benchmark/ace.js: $(ACE_SRCS)
 
 # The | prevents the prerequisite from being included in $^, and avoids
 # re-executing the rule when the folder is 'updated' with `mkdir -p`.
-build/%/browser/style.css: vendor/bootstrap/css/bootstrap.min.css \
+build/%/browser/style.css build/%/browser/swing.css: vendor/bootstrap/css/bootstrap.min.css \
 	browser/style.css | build/%/browser
 	cat $^ > $@
 

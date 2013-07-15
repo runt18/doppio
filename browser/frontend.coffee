@@ -75,10 +75,10 @@ onResize = ->
   $('#console').height(h)
   $('#source').height(h)
 
-$(window).resize(onResize)
+# $(window).resize(onResize)
 
 $(document).ready ->
-  onResize()
+  # onResize()
   editor = $('#editor')
   # set up the local file loaders
   $('#file').change (ev) ->
@@ -226,6 +226,20 @@ read_dir = (dir, pretty=true, columns=true) ->
 location.origin = location.origin or "#{location.protocol}//#{location.host}"
 
 commands =
+  draw: ->
+    $c = $('#renderer')
+    $c.attr(height: 300, width: 300)
+
+    c = $c[0]
+
+    ctx = c.getContext('2d')
+    ctx.moveTo(50, 50)
+    ctx.lineTo(200, 200)
+    ctx.stroke()
+
+    controller.reprompt()
+    return null
+
   view_dump: ->
     if window.core_dump
       # Open the core viewer in a new window and save a reference to it
