@@ -139,7 +139,7 @@ dev: dependencies build/dev build/dev/browser \
 
 	rsync $(filter %.js,$(dev_BROWSER_SRCS)) build/dev/vendor
 	rsync browser/*.svg browser/*.png build/dev/browser/
-	cp browser/core_viewer/core_viewer.css build/dev/browser/core_viewer
+	rsync browser/core_viewer/core_viewer.css build/dev/browser/core_viewer/
 	coffee -c -o build/dev/browser/core_viewer browser/core_viewer/core_viewer.coffee
 	cp browser/core_viewer.html build/dev
 
