@@ -3,17 +3,11 @@
 
 package classes.special_test.graphics;
 
-import javax.swing.SwingUtilities;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 
-public class Label implements Runnable {
+public class Label {
     public static void main(String[] args) {
-        Label main = new Label();
-        SwingUtilities.invokeLater(main);
-    }
-
-    public void run(){
         JFrame window = new JFrame();
 
         window.setTitle("Label test");
