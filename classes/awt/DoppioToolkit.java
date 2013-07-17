@@ -29,7 +29,7 @@ public class DoppioToolkit extends Toolkit {
 
     @Override
     protected TextFieldPeer createTextField(TextField textField) throws HeadlessException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return new DoppioTextFieldPeer();
     }
 
     @Override

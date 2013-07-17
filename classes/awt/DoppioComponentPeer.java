@@ -71,7 +71,7 @@ public class DoppioComponentPeer implements ComponentPeer {
 
     @Override
     public Dimension getPreferredSize() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return new Dimension(10, 10);
     }
 
     @Override

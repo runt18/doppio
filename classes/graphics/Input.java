@@ -3,45 +3,40 @@
 
 package classes.graphics;
 
-import javax.swing.SwingUtilities;
-import javax.swing.JFrame;
-import javax.swing.JTextField;
-import javax.swing.JLabel;
-import javax.swing.Box;
+import java.awt.Frame;
+import java.awt.TextField;
+import java.awt.Label;
+import java.awt.GridLayout;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-public class Input implements Runnable {
-    private JLabel l;
-    private JTextField tf;
+public class Input {
+    private Label l;
+    private TextField tf;
 
     public static void main(String[] args) {
-        Input main = new Input();
-        SwingUtilities.invokeLater(main);
+        Input i = new Input();
+        i.run();
     }
 
     public void run(){
-        JFrame window = new JFrame();
+        Frame window = new Frame();
 
         window.setTitle("Input test");
-        window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         String sample = "Hello";
 
-        tf = new JTextField(sample);
-        l = new JLabel(sample.length() + " characters.");
+        tf = new TextField(sample);
+        l = new Label(sample.length() + " characters.");
 
         tf.addActionListener(new LabelUpdater());
 
-        Box wrapper = Box.createVerticalBox();
+        window.setLayout(new GridLayout(1, 2));
 
-        wrapper.add(tf);
-        wrapper.add(l);
+        window.add(tf);
+        window.add(l);
 
-        window.add(wrapper);
-
-        window.pack();
         window.setLocationByPlatform(true);
         window.setVisible(true);
     }
