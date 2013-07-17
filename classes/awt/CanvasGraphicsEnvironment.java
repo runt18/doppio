@@ -14,7 +14,9 @@ public class CanvasGraphicsEnvironment extends SunGraphicsEnvironment {
 
     // }
 
-    public native Graphics2D createGraphics(BufferedImage img);
+    public Graphics2D createGraphics(BufferedImage img){
+        return new DoppioGraphics();
+    }
 
     public native Font[] getAllFonts();
 
