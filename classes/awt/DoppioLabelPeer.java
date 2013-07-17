@@ -14,9 +14,4 @@ public class DoppioLabelPeer extends DoppioComponentPeer implements LabelPeer {
     public void setAlignment(int i) {
         //To change body of implemented methods use File | Settings | File Templates.
     }
-
-    @Override
-    public Toolkit getToolkit(){
-        return DoppioToolkit.getDefaultToolkit();
-    }
 }

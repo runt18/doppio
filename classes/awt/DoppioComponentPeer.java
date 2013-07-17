@@ -86,7 +86,7 @@ public class DoppioComponentPeer implements ComponentPeer {
 
     @Override
     public Toolkit getToolkit() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return new DoppioToolkit();
     }
 
     @Override
