@@ -39,9 +39,15 @@ public class DoppioGraphics extends Graphics2D {
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
+    // 4th argument only exists to make the signature different, never used
+    private native void drawString(String string, int x, int y, Object n);
+
     @Override
-    public void drawString(String s, int i, int i2) {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void drawString(String string, int x, int y){
+        if (string == null){
+            throw new NullPointerException();
+        }
+        drawString(string, x, y, null);
     }
 
     @Override

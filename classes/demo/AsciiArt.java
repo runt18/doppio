@@ -23,7 +23,7 @@ public class AsciiArt {
         //graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         graphics.drawString(args[0], 0, HEIGHT);
 
-        boolean debug = true;
+        boolean debug = false;
 
         for (int y = 0; y < HEIGHT; y++) {
             StringBuilder sb = new StringBuilder();
