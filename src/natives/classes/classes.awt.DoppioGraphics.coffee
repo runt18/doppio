@@ -1,20 +1,25 @@
 native_methods.classes.awt.DoppioGraphics = [
     o('drawString(Ljava/lang/String;IILjava/lang/Object;)V', (rs, _this, string, x, y, n) ->
+        # XXX: Don't hardcode these - get them from the parent Image/Component's
+        # properties somehow
+        width = 80
+        height = 24
+        font_size = 16
+
         canvas = document.createElement('canvas')
-        context = canvas.getContext('2d')
-        context.fillText(string, x, y)
+        canvas.width = width
+        canvas.height = height
 
-        # Returns the rgba colour of the pixel at the given x, y coordinates on
-        #the canvas as an integer
-        getPixel = (x, y) ->
-            # Get the colour as an array of [red, green, blue, alpha] values
-            # between 0 and 255 inclusive
-            {data: [red, green, blue, alpha]} = context.getImageData(x, y, 1, 1)
-            # Convert to an integer
-            colour = (alpha << 24) | (red << 16) | (green << 8) | (blue << 0)
+        # XXX: Don't make this global
+        window.context = canvas.getContext('2d')
+        context.font = "#{font_size}pt Arial"
 
-            return colour
+        context.beginPath()
+        context.rect(0, 0, width, height)
+        context.fillStyle = 'black'
+        context.fill()
 
-        console.log(getPixel(10, 10))
+        context.fillStyle = 'white'
+        context.fillText(string.jvm2js_str(), x, y)
     )
 ]

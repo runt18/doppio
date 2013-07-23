@@ -45,6 +45,8 @@ o = (fn_name, fn) -> fn_name: fn_name, fn: fn
 
 trapped_methods =
   java:
+    awt:
+      image: {}
     lang:
       ref:
         Reference: [
