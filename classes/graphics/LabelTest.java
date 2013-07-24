@@ -15,6 +15,10 @@ public class LabelTest {
         Label label = new Label("Hello world!");
         window.add(label);
 
+        // Call pack to calculate frame size
+        window.pack();
+        // Manually trigger the paint method
+        window.paint(window.getGraphics());
         window.setVisible(true);
     }
 }
