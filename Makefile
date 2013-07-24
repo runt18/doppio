@@ -63,7 +63,8 @@ COMMON_BROWSER_SRCS = vendor/_.js \
 	src/ClassLoader.coffee \
 	src/jvm.coffee \
 	src/testing.coffee \
-	browser/untar.coffee
+	browser/untar.coffee \
+	src/swing.coffee
 
 # Release uses the actual jQuery console.
 release_BROWSER_SRCS := $(COMMON_BROWSER_SRCS) \
@@ -90,7 +91,8 @@ library_BROWSER_SRCS := vendor/_.js \
 	src/methods.coffee \
 	src/runtime.coffee \
 	src/ClassLoader.coffee \
-	src/jvm.coffee
+	src/jvm.coffee \
+	src/swing.coffee
 # These don't survive uglifyjs and are already minified, so include them
 # separately. Also, this allows us to put them at the end of the document to
 # reduce load time.
