@@ -6,6 +6,11 @@ import java.awt.peer.ContainerPeer;
 public class DoppioContainerPeer extends DoppioComponentPeer implements ContainerPeer {
 
     @Override
+    public void paint(Graphics g){
+        System.out.println("Paint triggered.");
+    }
+
+    @Override
     public Insets getInsets() {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
