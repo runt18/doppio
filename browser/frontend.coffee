@@ -226,18 +226,11 @@ read_dir = (dir, pretty=true, columns=true) ->
 location.origin = location.origin or "#{location.protocol}//#{location.host}"
 
 commands =
+  # For debugging Swing window rendering
   draw: ->
-    wndw = $(_.template($('#window-tmpl').html(), {title: 'Test'}))
-    viewer = $('#viewer')
-    canvas = wndw.find('.renderer')
-    c = canvas[0].getContext('2d')
-    viewer.width(canvas.attr('width'))
-    viewer.append(wndw)
-
-
-    c.moveTo(50, 50)
-    c.lineTo(200, 200)
-    c.stroke()
+    swing = require('./swing')
+    f = new swing.Frame()
+    f.render()
 
     controller.reprompt()
     return null
