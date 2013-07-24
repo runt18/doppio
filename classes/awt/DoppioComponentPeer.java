@@ -35,13 +35,13 @@ public class DoppioComponentPeer implements ComponentPeer {
     }
 
     @Override
-    public void paint(Graphics graphics) {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void paint(Graphics graphics){
+
     }
 
     @Override
     public void repaint(long l, int i, int i2, int i3, int i4) {
-        //To change body of implemented methods use File | Settings | File Templates.
+
     }
 
     @Override
@@ -216,7 +216,7 @@ public class DoppioComponentPeer implements ComponentPeer {
 
     @Override
     public Dimension preferredSize() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return new Dimension(10, 10);
     }
 
     @Override
