@@ -23,12 +23,13 @@ html, body, #main, #console {
 
 .swing-window {
     border: 1px solid black;
+    display: inline-block;
 }
 
 .title {
     font-weight: bold;
     background: #efefef;
-    padding: 5px 0;
+    padding: 5px;
     text-align: center;
     display: block;
     border-bottom: 1px solid #000;
