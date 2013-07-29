@@ -44,7 +44,7 @@ BROWSER_HTML      := $(BROWSER_TEMPLATES:.mustache=.html)
 # SCRIPTS
 # the order here is important: must match the order of includes
 # in the browser frontend html.
-COMMON_BROWSER_SRCS = vendor/_.js \
+COMMON_BROWSER_SRCS = vendor/underscore/underscore.js \
 	vendor/gLong.js \
 	browser/util.coffee \
 	browser/node.coffee \
@@ -76,7 +76,7 @@ benchmark_BROWSER_SRCS := $(COMMON_BROWSER_SRCS) \
 	browser/mockconsole.coffee \
 	browser/frontend.coffee
 # Sources for an in-browser doppio.js library. Same ordering requirement applies.
-library_BROWSER_SRCS := vendor/_.js \
+library_BROWSER_SRCS := vendor/underscore/underscore.js \
 	vendor/gLong.js \
 	src/logging.coffee \
 	src/exceptions.coffee \
