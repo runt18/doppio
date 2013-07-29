@@ -78,6 +78,7 @@ onResize = ->
 # $(window).resize(onResize)
 
 $(document).ready ->
+  swing.taskbar.render()
   # onResize()
   editor = $('#editor')
   # set up the local file loaders

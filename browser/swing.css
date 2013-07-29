@@ -18,19 +18,52 @@ html, body, #main, #console {
 }
 
 #viewer {
-    padding: 10px;
 }
 
 .swing-window {
     border: 1px solid black;
     display: inline-block;
+    background: #eee;
 }
 
 .title {
     font-weight: bold;
-    background: #efefef;
+    background: #ccc;
     padding: 5px;
     text-align: center;
     display: block;
     border-bottom: 1px solid #000;
+    cursor: pointer;
+}
+
+#taskbar {
+    width: 100%;
+    padding: 5px;
+    margin: 0;
+    position: absolute;
+    bottom: 0;
+    background: gray;
+    color: white;
+    list-style-type: none;
+    border-top: 1px solid red;
+}
+
+#desktop {
+    padding: 10px;
+    height: 100%;
+}
+
+#taskbar > li {
+    float: left;
+    margin-right: 10px;
+    border: 1px solid red;
+    max-width: 100px;
+    padding: 5px 10px;
+    cursor: pointer;
+    background: blue;
+    overflow: hidden;
+}
+
+.close {
+    float: right;
 }

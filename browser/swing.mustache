@@ -20,11 +20,15 @@
   </script>
 {{/release}}
 {{^release}}
-  <script type="text/javascript" src="vendor/jquery-1.7.1.min.js"></script>
-  <script type="text/javascript" src="vendor/_.js"></script>
+  <script type="text/javascript" src="vendor/jquery/jquery.js"></script>
+  <script type="text/javascript" src="vendor/jquery-migrate/jquery-migrate.js"></script>
+  <script type="text/javascript" src="vendor/jquery-ui/ui/jquery-ui.js"></script>
+  <script type="text/javascript" src="vendor/underscore/underscore.js"></script>
   <script type="text/javascript" src="vendor/gLong.js"></script>
+
   <script type="text/javascript" src="browser/util.js"></script>
   <script type="text/javascript" src="browser/node.js"></script>
+
   <script type="text/javascript" src="src/logging.js"></script>
   <script type="text/javascript" src="src/exceptions.js"></script>
   <script type="text/javascript" src="src/util.js"></script>
@@ -41,9 +45,12 @@
   <script type="text/javascript" src="src/swing.js"></script>
   <script type="text/javascript" src="src/jvm.js"></script>
   <script type="text/javascript" src="src/testing.js"></script>
+
   <script type="text/javascript" src="vendor/jquery.console.js"></script>
+
   <script type="text/javascript" src="browser/untar.js"></script>
   <script type="text/javascript" src="browser/frontend.js"></script>
+
   <script type="text/javascript" src="vendor/ace/src/ace.js"></script>
   <script type="text/javascript" src="vendor/ace/src/mode-java.js"></script>
   <script type="text/javascript" src="vendor/ace/src/theme-twilight.js"></script>
@@ -79,16 +86,20 @@
     <div id='console'><div id="consoleUnderlay"><img src="browser/coffee.png"/></div></div>
   </div>
 
-  <div id="viewer"></div>
+  <div id="viewer">
+    <div id="desktop"></div>
+  </div>
 </div>
 {{#release}}
 <script type="text/javascript" src="ace.js"></script>
 {{/release}}
 
-
 <script type="x-template" id="window-tmpl">
   <div class="swing-window">
-    <span class="title"><%= title %></span>
+    <span class="title">
+      <%= title %>
+      <span class="close">&times;</span>
+    </span>
     <canvas class="renderer"></canvas>
   </div>
 </script>
