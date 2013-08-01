@@ -63,6 +63,9 @@ preload = ->
 process_bytecode = (buffer) -> new ClassData.ReferenceClassData(buffer)
 
 onResize = ->
+   # The swing demo uses a statically-sized console
+  return if window.swing
+
   h = $(window).height() * 0.7
   $('#console').height(h)
   $('#source').height(h)
@@ -73,7 +76,7 @@ $(window).resize(onResize)
 
 $(document).ready ->
   swing.taskbar.render()
-  # onResize()
+  onResize()
   editor = $('#editor')
   # set up the local file loaders
   $('#file').change (ev) ->

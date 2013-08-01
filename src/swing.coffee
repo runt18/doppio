@@ -4,13 +4,13 @@ window.swing or= {
   containers: []
 }
 
-
-
-
 class swing.Taskbar
   constructor: () ->
     @el = $('<ul id="taskbar">')
-    @el.sortable(axis: 'x').disableSelection()
+    @el.sortable(
+      axis: 'x'
+      containment: 'parent'
+    ).disableSelection()
 
   render: ->
     $('#viewer').append(@el)

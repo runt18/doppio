@@ -24,6 +24,9 @@ html, body, #main, #console {
     border: 1px solid black;
     display: inline-block;
     background: #eee;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
+    min-width: 100px;
+    min-height: 100px;
 }
 
 .title {
@@ -37,15 +40,14 @@ html, body, #main, #console {
 }
 
 #taskbar {
-    width: 100%;
-    padding: 5px;
+    width: 50%;
+    padding: 3px;
     margin: 0;
     position: absolute;
     bottom: 0;
-    background: gray;
-    color: white;
+    background: #2b2b2b;
     list-style-type: none;
-    border-top: 1px solid red;
+    border-top: 1px solid black;
 }
 
 #desktop {
@@ -56,12 +58,14 @@ html, body, #main, #console {
 #taskbar > li {
     float: left;
     margin-right: 10px;
-    border: 1px solid red;
+    border: 1px solid #5E5E5E;
     max-width: 100px;
     padding: 5px 10px;
     cursor: pointer;
-    background: blue;
+    background: #E9E9E9;
     overflow: hidden;
+    font-weight: bold;
+    color: #0A0A0A;
 }
 
 .close {
