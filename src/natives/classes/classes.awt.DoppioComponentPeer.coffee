@@ -37,7 +37,5 @@ trapped_methods.java.awt.Container = [
                     components.push(new Label(f, value, height, width))
 
         c.render() for c in components
-
-        swing.taskbar.update()
     )
 ]
