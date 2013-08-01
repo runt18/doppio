@@ -4,6 +4,21 @@ window.swing or= {
   containers: []
 }
 
+$(->
+  swing.templates = {}
+  for s in ['window', 'icon']
+    swing.templates[s] = _.template($("##{s}-tmpl").html())
+)
+
+class swing.Icon
+  constructor: (@title, @id) ->
+    @tmpl = swing.templates.icon
+    @el = $(@tmpl({title: @title}))
+    @el.click(=>
+      $('.swing-window').css({'z-index': 10})
+      $("#frame-#{@id}").css({'z-index': 100})
+    )
+
 class swing.Taskbar
   constructor: () ->
     @el = $('<ul id="taskbar">')
@@ -11,6 +26,7 @@ class swing.Taskbar
       axis: 'x'
       containment: 'parent'
     ).disableSelection()
+    @icons = []
 
   render: ->
     $('#viewer').append(@el)
@@ -19,19 +35,25 @@ class swing.Taskbar
     @el.empty()
 
     for container in swing.containers
-      @el.append($('<li class="icon">').text(container.title))
+      icon = new swing.Icon(container.title, container.id)
+      @el.append(icon.el)
+      @icons.push(icon)
 
 class swing.Frame
   constructor: (@title='untitled', @height=0, @width=0) ->
-    @wndw = $(_.template($('#window-tmpl').html(), {title: @title}))
-    @wndw.draggable(
+    @id = "#{Date.now()}"
+    @tmpl = swing.templates.window
+    @el = $(@tmpl({title: @title}))
+    @el.draggable(
       handle: '.title'
       containment: 'parent'
       stack: '.swing-window'
     )
     .resizable()
 
-    @canvas = @wndw.find('.renderer')
+    @el.attr('id', "frame-#{@id}")
+
+    @canvas = @el.find('.renderer')
     @canvas.attr
       width: @width
       height: @height
@@ -41,7 +63,7 @@ class swing.Frame
     swing.containers.push(this)
 
   render: ->
-    $('#desktop').append(@wndw)
+    $('#desktop').append(@el)
     swing.taskbar.update()
 
 class swing.Label

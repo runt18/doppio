@@ -244,9 +244,9 @@ location.origin ?= location.origin or "#{location.protocol}//#{location.host}"
 
 commands =
   # For debugging Swing window rendering
-  draw: ->
+  draw: (args) ->
     swing = require('./swing')
-    f = new swing.Frame()
+    f = new swing.Frame(args[0] or 'untitled')
     f.render()
 
     controller.reprompt()
