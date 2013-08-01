@@ -1,4 +1,9 @@
 *.js
+vendor
+!vendor/gLong.js
+!vendor/jquery.console.js
+!vendor/browserfs.min.js
+
 *.swp
 *.un~
 *.class
@@ -26,7 +31,13 @@ vendor/underscore
 
 tools/preload
 classes/test/failures.txt
+
+# IntelliJ metadata
 *.iml
 .idea
+
+# The concatenated native methods
 src/natives.coffee
+
+# Log files
 *.log

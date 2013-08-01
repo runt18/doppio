@@ -41,13 +41,21 @@ SWING_CLASSES := $(SWING_SRCS:.java=.class)
 BROWSER_TEMPLATES := $(wildcard browser/[^_]*.mustache)
 BROWSER_HTML      := $(BROWSER_TEMPLATES:.mustache=.html)
 
+# Third-party sources
+THIRD_PARTY_SRCS := vendor/jquery-migrate/jquery-migrate.js \
+	vendor/underscore/underscore.js \
+	vendor/browserfs/dist/browserfs.js \
+	vendor/gLong.js \
+	vendor/ace-builds/src/ace.js \
+	vendor/ace-builds/src/mode-java.js \
+	vendor/ace-builds/src/theme-twilight.js
+
+
 # SCRIPTS
 # the order here is important: must match the order of includes
 # in the browser frontend html.
-COMMON_BROWSER_SRCS = vendor/underscore/underscore.js \
-	vendor/gLong.js \
+COMMON_BROWSER_SRCS := browser/node_setup.coffee \
 	browser/util.coffee \
-	browser/node.coffee \
 	src/logging.coffee \
 	src/exceptions.coffee \
 	src/util.coffee \
@@ -67,7 +75,7 @@ COMMON_BROWSER_SRCS = vendor/underscore/underscore.js \
 	src/swing.coffee
 
 # Release uses the actual jQuery console.
-release_BROWSER_SRCS := $(COMMON_BROWSER_SRCS) \
+release_BROWSER_SRCS := $(THIRD_PARTY_SRCS) $(COMMON_BROWSER_SRCS) \
 	vendor/jquery.console.js \
 	browser/frontend.coffee
 dev_BROWSER_SRCS := $(release_BROWSER_SRCS)
@@ -76,9 +84,7 @@ benchmark_BROWSER_SRCS := $(COMMON_BROWSER_SRCS) \
 	browser/mockconsole.coffee \
 	browser/frontend.coffee
 # Sources for an in-browser doppio.js library. Same ordering requirement applies.
-library_BROWSER_SRCS := vendor/underscore/underscore.js \
-	vendor/gLong.js \
-	src/logging.coffee \
+library_BROWSER_SRCS := src/logging.coffee \
 	src/exceptions.coffee \
 	src/util.coffee \
 	src/java_object.coffee \
@@ -91,14 +97,9 @@ library_BROWSER_SRCS := vendor/underscore/underscore.js \
 	src/methods.coffee \
 	src/runtime.coffee \
 	src/ClassLoader.coffee \
-	src/jvm.coffee \
-	src/swing.coffee
-# These don't survive uglifyjs and are already minified, so include them
-# separately. Also, this allows us to put them at the end of the document to
-# reduce load time.
-ACE_SRCS = vendor/ace/src-min/ace.js \
-	vendor/ace/src-min/mode-java.js \
-	vendor/ace/src-min/theme-twilight.js
+	src/swing.coffee \
+	src/jvm.coffee
+
 CLI_SRCS := $(wildcard src/*.coffee console/*.coffee) src/natives.coffee
 
 # Get list of native sources in alphabetical order.
@@ -129,7 +130,7 @@ src/natives.coffee: $(NATIVE_SRCS)
 # This is a static pattern rule. '%' gets substituted for the target name.
 release benchmark: %: dependencies build/% build/%/browser \
 	$(patsubst %,build/\%/%,$(notdir $(BROWSER_HTML))) build/%/favicon.ico \
-	build/%/compressed.js build/%/browser/mini-rt.tar build/%/ace.js \
+	build/%/compressed.js build/%/browser/mini-rt.tar \
 	build/%/browser/style.css $(DEMO_CLASSES) $(UTIL_CLASSES) \
 	build/%/classes build/%/vendor
 	rsync browser/*.svg browser/*.png build/$*/browser/
@@ -252,12 +253,6 @@ build/release/%.html build/benchmark/%.html: browser/%.mustache browser/_navbar.
 
 build/%/favicon.ico: browser/favicon.ico
 	rsync $< $@
-
-build/release/ace.js build/dev/ace.js build/benchmark/ace.js: $(ACE_SRCS)
-	for src in $(ACE_SRCS); do \
-		cat $${src}; \
-		echo ";"; \
-	done > $@
 
 # The | prevents the prerequisite from being included in $^, and avoids
 # re-executing the rule when the folder is 'updated' with `mkdir -p`.
