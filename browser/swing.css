@@ -56,17 +56,18 @@ html, body, #main, #console {
     height: 100%;
 }
 
-#taskbar > li {
+.icon {
     float: left;
     margin-right: 10px;
     border: 1px solid #5E5E5E;
-    max-width: 100px;
+    width: 100px;
     padding: 5px 10px;
     cursor: pointer;
     background: #E9E9E9;
     overflow: hidden;
     font-weight: bold;
     color: #0A0A0A;
+    text-align: center;
 }
 
 .close {

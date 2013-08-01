@@ -18,26 +18,24 @@ class swing.Icon
       $('.swing-window').css({'z-index': 10})
       $("#frame-#{@id}").css({'z-index': 100})
     )
+    # swing.taskbar.make_sortable()
 
 class swing.Taskbar
   constructor: ->
-    @el = $('<ul id="taskbar">')
+    @el = $('<ul id="taskbar"><li class="icon">dummy</li></ul>')
+    @make_sortable()
+
+  make_sortable: ->
     @el.sortable(
       axis: 'x'
       containment: 'parent'
+      # placeholder: 'ui-state-highlight'
+      # start: (event, ui) -> ui.placeholder.html('&nbsp;')
     ).disableSelection()
-    @icons = []
+    @el.empty()
 
   render: ->
     $('#viewer').append(@el)
-
-  # update: ->
-  #   @el.empty()
-
-  #   for container of swing.containers
-  #     icon = new swing.Icon(container.title, container.id)
-  #     @el.append(icon.el)
-  #     @icons.push(icon)
 
 class swing.Frame
   constructor: (@title='untitled', @height=0, @width=0) ->
