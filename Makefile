@@ -71,6 +71,7 @@ COMMON_BROWSER_SRCS := browser/node_setup.coffee \
 	src/runtime.coffee \
 	src/ClassLoader.coffee \
 	src/jvm.coffee \
+	src/swing.coffee \
 	src/testing.coffee \
 	browser/untar.coffee \
 	src/swing.coffee
@@ -101,6 +102,8 @@ library_BROWSER_SRCS := src/logging.coffee \
 	src/swing.coffee \
 	src/jvm.coffee
 
+SWING_BROWSER_SRCS := $(patsubst %, src/swing/%.coffee, intro icon taskbar frame label)
+
 CLI_SRCS := $(wildcard src/*.coffee console/*.coffee) src/natives.coffee
 
 # Get list of native sources in alphabetical order.
@@ -115,8 +118,8 @@ NATIVE_CLASSES := $(wildcard src/natives/classes/*.coffee)
 # target's name is present.
 .PHONY: release benchmark dist dependencies java test clean docs build dev library
 
-# Don't keep this around in the src directory, because it's a generated file.
-.INTERMEDIATE: src/natives.coffee
+# Don't keep these around in the src directory, because they're generated from others.
+.INTERMEDIATE: src/natives.coffee src/swing.coffee
 
 library: dependencies build/library/compressed.js
 	cp build/library/compressed.js build/library/doppio.min.js
@@ -126,6 +129,9 @@ build/library:
 # Concatenate all components of natives.coffee whenever any one changes
 src/natives.coffee: $(NATIVE_SRCS)
 	cat src/natives/main.coffee $(NATIVE_CLASSES) src/natives/outro.coffee > src/natives.coffee
+
+src/swing.coffee: $(SWING_BROWSER_SRCS)
+	cat $(SWING_BROWSER_SRCS) > src/swing.coffee
 
 # Builds a release or benchmark version of Doppio without the documentation.
 # This is a static pattern rule. '%' gets substituted for the target name.
@@ -202,7 +208,7 @@ clean:
 	@rm -f tools/*.js tools/preload browser/listings.json doppio doppio-dev
 	@rm -rf build/*
 	@rm -f $(patsubst %.md,%.html,$(wildcard browser/*.md))
-	@rm -f src/natives.coffee
+	@rm -f src/natives.coffee src/swing.coffee
 
 distclean: clean
 	@rm -f $(CLASSES) $(DISASMS) $(RUNOUTS) $(DEMO_CLASSES)

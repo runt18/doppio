@@ -38,6 +38,7 @@ classes/test/failures.txt
 
 # The concatenated native methods
 src/natives.coffee
+src/swing.coffee
 
 # Log files
 *.log
