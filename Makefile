@@ -158,7 +158,7 @@ release benchmark: %: dependencies build/% build/%/browser \
 # dev: unoptimized build
 dev: dependencies build/dev build/dev/browser \
 	$(patsubst %.coffee,build/dev/%.js,$(filter %.coffee,$(dev_BROWSER_SRCS))) \
-	build/dev/browser/style.css build/dev/browser/swing.css build/dev/index.html build/dev/favicon.ico $(DEMO_CLASSES) \
+	build/dev/index.html build/dev/favicon.ico $(DEMO_CLASSES) \
 	build/dev/browser/mini-rt.tar build/dev/classes build/dev/vendor \
 	$(SWING_CLASSES) $(LIB_CLASSES)
 
@@ -170,12 +170,9 @@ dev: dependencies build/dev build/dev/browser \
 
 	browser/render.coffee swing > build/dev/swing.html
 
-	$(STYLUS) -o browser browser/stylus/swing.styl
-	rsync browser/demo.css browser/swing.css build/dev/browser/
+	$(STYLUS) -o build/dev/browser browser/style.styl browser/stylus/swing.styl browser/demo.styl
 
 	cd build/dev; $(COFFEEC) $(DOPPIO_DIR)/tools/gen_dir_listings.coffee > browser/listings.json
-
-	rm browser/swing.css
 
 release-cli: $(CLI_SRCS:%.coffee=build/release/%.js) \
 	build/release/classes build/release/vendor doppio
@@ -278,9 +275,9 @@ build/%/favicon.ico: browser/favicon.ico
 
 # The | prevents the prerequisite from being included in $^, and avoids
 # re-executing the rule when the folder is 'updated' with `mkdir -p`.
-build/%/browser/style.css build/%/browser/swing.css: vendor/bootstrap/css/bootstrap.min.css \
-	browser/style.css | build/%/browser
-	cat $^ > $@
+# build/%/browser/style.css: vendor/bootstrap/css/bootstrap.min.css \
+# 	browser/style.css | build/%/browser
+# 	cat $^ > $@
 
 # Prevent this from being treated as pattern rule (because it has multiple targets)
 $(foreach TARGET,$(BUILD_TARGETS),$(subst %,$(TARGET),build/%/classes build/%/vendor)):
