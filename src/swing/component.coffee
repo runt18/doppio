@@ -1,0 +1,2 @@
+class swing.Component
+  constructor: ->

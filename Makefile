@@ -102,7 +102,18 @@ library_BROWSER_SRCS := src/logging.coffee \
 	src/swing.coffee \
 	src/jvm.coffee
 
-SWING_BROWSER_SRCS := $(patsubst %, src/swing/%.coffee, intro icon taskbar frame label)
+# CoffeeScript classes that back Java Swing components
+# Order is important, so we can't just wildcard all of src/swing
+SWING_BROWSER_SRCS := $(patsubst %, src/swing/%.coffee, \
+	intro \
+	icon \
+	taskbar \
+	component \
+	container\
+	window \
+	frame \
+	label \
+)
 
 CLI_SRCS := $(wildcard src/*.coffee console/*.coffee) src/natives.coffee
 
