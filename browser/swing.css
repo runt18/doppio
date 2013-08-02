@@ -27,7 +27,7 @@ html, body, #main, #console {
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
     min-width: 100px;
     min-height: 100px;
-    position: absolute;
+    position: absolute !important;
 }
 
 .title {
@@ -54,6 +54,7 @@ html, body, #main, #console {
 #desktop {
     padding: 10px;
     height: 100%;
+    position: relative;
 }
 
 .icon {

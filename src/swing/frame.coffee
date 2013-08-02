@@ -1,6 +1,6 @@
 # Backs the Swing class Frame, a Window with a title and a border
 class swing.Frame extends swing.Window
-  constructor: (@title='untitled', @height=0, @width=0) ->
+  constructor: (@title='untitled', @size={height: 0, width: 0}, @position={left: 0, top: 0}) ->
     # Save a reference to this object for reference from child elements
     frame = this
     @id = "#{Date.now()}"
@@ -14,6 +14,7 @@ class swing.Frame extends swing.Window
     )
     # And resizable
     .resizable()
+    .css(@position)
     # Give it a unique ID
     .attr('id', "frame-#{@id}")
     # Bind an event to the close button to remove this frame and its icon
@@ -34,9 +35,7 @@ class swing.Frame extends swing.Window
   # Components.
   init_renderer: ->
     @canvas = @el.find('.renderer')
-    @canvas.attr
-      width: @width
-      height: @height
+    @canvas.attr(@size)
     @ctx = @canvas[0].getContext('2d')
 
   bring_to_front: ->
@@ -45,4 +44,5 @@ class swing.Frame extends swing.Window
 
   render: ->
     $('#desktop').append(@el)
+    @el.trigger('start')
     swing.taskbar.el.append(@icon.el)

@@ -14,14 +14,15 @@ trapped_methods.java.awt.Container = [
         title_arr = fields['Ljava/awt/Frame;title'].fields[keys.value].array
         title_str = arr_to_str(title_arr)
 
-        height = fields[keys.height]
-        width = fields[keys.width]
+        size =
+            height: fields[keys.height]
+            width:  fields[keys.width]
 
         children = fields['Ljava/awt/Container;component'].fields['Ljava/util/ArrayList;elementData'].array
 
         console.log(children)
 
-        f = new Frame(title_str, height, width)
+        f = new Frame(title_str, size, {top: 0, left: 0})
         components = [f]
 
         for component in children when component isnt null

@@ -246,7 +246,7 @@ commands =
   # For debugging Swing window rendering
   draw: (args) ->
     swing = require('./swing')
-    f = new swing.Frame(args[0] or 'untitled')
+    f = new swing.Frame(args[0])
     f.render()
 
     controller.reprompt()
