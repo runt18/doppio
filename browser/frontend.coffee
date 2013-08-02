@@ -236,7 +236,7 @@ columnize = (str_list, line_length=100) ->
     row_list.push row.join('')
   return row_list.join('\n')
 
-location.origin = location.origin or "#{location.protocol}//#{location.host}"
+location.origin ?= location.origin or "#{location.protocol}//#{location.host}"
 
 commands =
   view_dump: ->
@@ -415,13 +415,13 @@ commands =
       read_dir args[0], null, null, (list) ->
         controller.message list, 'success'
     else
-      i = 0
-      read_next_dir = ->
-        read_dir args[i++], null, null, (list) ->
+      read_next_dir = (i) ->
+        d = args[i]
+        read_dir d, null, null, (list) ->
           controller.message "#{d}:\n#{list}\n\n", 'success', true
           if i is args.length then return controller.reprompt()
-          read_next_dir()
-      read_next_dir()
+          read_next_dir(i+1)
+      read_next_dir(0)
     return null
   edit: (args) ->
     startEditor = (data) ->
@@ -433,10 +433,10 @@ commands =
         editor = ace.edit('source')
         editor.setTheme 'ace/theme/twilight'
         if not args[0]? or args[0].split('.')[1] is 'java'
-          JavaMode = require("ace/mode/java").Mode
+          JavaMode = ace.require("ace/mode/java").Mode
           editor.getSession().setMode(new JavaMode)
         else
-          TextMode = require("ace/mode/text").Mode
+          TextMode = ace.require("ace/mode/text").Mode
           editor.getSession().setMode(new TextMode)
         editor.getSession().setValue(data)
     if args[0]?
@@ -469,7 +469,7 @@ commands =
       # Change to the default (starting) directory.
       '/demo'
     else node.path.resolve(args[0])
-    # Verify path exits before going there. chdir does not verify that the
+    # Verify path exists before going there. chdir does not verify that the
     # directory exists.
     node.fs.exists dir, (doesExist) ->
       if doesExist
@@ -484,19 +484,13 @@ commands =
     if args[0] == '*'
       node.fs.readdir '.', (err, fnames) ->
         if err
-          controller.message "Could not remove '.': #{err}\n", 'error'
+          controller.message "Could not read '.': #{err}\n", 'error'
         else
+          completed = 0
           for fname in fnames
-            completed = 0
-            node.fs.stat fname, (err, fstat) ->
-              if err
-                controller.message "Could not remove '.': #{err}\n", 'error'
-              else if fstat.is_directory
-                controller.message "ERROR: '#{fname}' is a directory.\n", 'error'
-              else
-                node.fs.unlink fname, (err) ->
-                  if err then controller.message "Could not remove file: #{err}\n", 'error', true
-                  if ++completed is fname.length then controller.reprompt()
+            node.fs.unlink fname, (err) ->
+              if err then controller.message "Could not remove file: #{err}\n", 'error', true
+              if ++completed is fnames.length then controller.reprompt()
     else node.fs.unlink args[0], (err) ->
       if err then controller.message "Could not remove file: #{err}\n", 'error', true
       controller.reprompt()
