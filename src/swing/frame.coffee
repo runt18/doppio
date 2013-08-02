@@ -11,10 +11,12 @@ class swing.Frame extends swing.Window
       handle: '.title'
       containment: 'parent'
       stack: '.swing-window'
+      drag: (event, ui) => @position = ui.position
     )
     # And resizable
     .resizable(
       containment: 'parent'
+      resize: (event, ui) => @size = ui.size
     )
     .css(@position)
     # Give it a unique ID
