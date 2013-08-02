@@ -13,7 +13,9 @@ class swing.Frame extends swing.Window
       stack: '.swing-window'
     )
     # And resizable
-    .resizable()
+    .resizable(
+      containment: 'parent'
+    )
     .css(@position)
     # Give it a unique ID
     .attr('id', "frame-#{@id}")
