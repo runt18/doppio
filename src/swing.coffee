@@ -16,14 +16,11 @@ $(->
 # A button in the Taskbar that is associated with one Swing Container or
 # subclass such as Window or Frame.
 class swing.Icon
-  constructor: (@title, @id) ->
+  constructor: (@container) ->
     @tmpl = swing.templates.icon
-    @el = $(@tmpl({title: @title}))
+    @el = $(@tmpl({title: @container.title}))
     # Bring this icon's container to the front when clicked
-    @el.click(=>
-      $('.swing-window').css({'z-index': 10})
-      $("#frame-#{@id}").css({'z-index': 100})
-    )
+    @el.click(=> @container.bring_to_front())
 
 # A visual representation of all Swing Containers in the current session
 class swing.Taskbar
@@ -88,7 +85,11 @@ class swing.Frame
     @ctx = @canvas[0].getContext('2d')
 
     swing.containers[@id] = this
-    @icon = new swing.Icon(@title, @id)
+    @icon = new swing.Icon(this)
+
+  bring_to_front: ->
+    $('.swing-window').css({'z-index': 10})
+    @el.css({'z-index': 100})
 
   render: ->
     $('#desktop').append(@el)
