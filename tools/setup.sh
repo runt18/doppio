@@ -35,7 +35,7 @@ if [ ! -f classes/java/lang/Object.class ]; then
     unzip -qq -o -d classes/ "$JAR_PATH"
   done
   if [ ! -e java_home ]; then
-    JH=$DOWNLOAD_DIR/usr/lib/jvm/java-6-openjdk-common/jre
+    JH=$DOWNLOAD_DIR/usr/lib/jvm/java-6-openjdk/jre
     # a number of .properties files are symlinks to /etc; copy the targets over
     # so we do not need to depend on /etc's existence
     for LINK in `find $JH -type l`; do
@@ -86,6 +86,12 @@ if ! command -v node > /dev/null; then
     echo "Node.js required and could not be installed, please install from http://nodejs.org/"
     exit
   fi
+fi
+
+# Make sure npm is installed
+if ! command -v npm > /dev/null; then
+  echo "npm not found, installing (requires superuser rights)"
+  curl https://npmjs.org/install.sh | sudo sh
 fi
 
 # Install Node modules (must come before version check because the semver package is needed)

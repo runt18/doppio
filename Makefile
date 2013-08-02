@@ -15,6 +15,7 @@ BOOTCLASSPATH := $(DOPPIO_DIR)/vendor/classes
 COFFEEC  := $(shell npm bin)/coffee
 UGLIFYJS := $(shell npm bin)/uglifyjs
 DOCCO    := $(shell npm bin)/docco
+BOWER    := $(shell npm bin)/bower
 JAZZLIB  := $(BOOTCLASSPATH)/java/util/zip/DeflaterEngine.class
 JRE      := $(BOOTCLASSPATH)/java/lang/Object.class
 SED      := $(shell if command -v gsed >/dev/null; then echo "gsed"; else echo "sed"; fi;)
@@ -146,7 +147,7 @@ dev: dependencies build/dev build/dev/browser \
 	rsync $(filter %.js,$(dev_BROWSER_SRCS)) build/dev/vendor
 	rsync browser/*.svg browser/*.png build/dev/browser/
 	rsync browser/core_viewer/core_viewer.css build/dev/browser/core_viewer/
-	coffee -c -o build/dev/browser/core_viewer browser/core_viewer/core_viewer.coffee
+	$(COFFEEC) -c -o build/dev/browser/core_viewer browser/core_viewer/core_viewer.coffee
 	cp browser/core_viewer.html build/dev
 
 	browser/render.coffee swing > build/dev/swing.html
@@ -168,9 +169,9 @@ $(DIST_NAME): release docs
 
 # Installs or checks for any required dependencies.
 dependencies: $(JAZZLIB) $(JRE)
-	@git submodule update --quiet --init --recursive
 	@rm -f classes/test/failures.txt
 	@npm install
+	@$(BOWER) install
 $(JAZZLIB):
 	$(error JazzLib not found. Unzip it to $(BOOTCLASSPATH), or run ./tools/setup.sh.)
 $(JRE):
@@ -246,10 +247,10 @@ $(foreach TARGET,$(BUILD_TARGETS),$(subst %,$(TARGET),$(BUILD_FOLDERS))):
 build/release/about.html build/benchmark/about.html: browser/_about.md
 
 build/dev/%.html: browser/%.mustache browser/_navbar.mustache
-	browser/render.coffee $* > $@
+	$(COFFEEC) browser/render.coffee $* > $@
 
 build/release/%.html build/benchmark/%.html: browser/%.mustache browser/_navbar.mustache
-	browser/render.coffee --release $* > $@
+	$(COFFEEC) browser/render.coffee --release $* > $@
 
 build/%/favicon.ico: browser/favicon.ico
 	rsync $< $@
