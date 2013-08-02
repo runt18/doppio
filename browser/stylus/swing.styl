@@ -1,0 +1,75 @@
+dark_grey = #0A0A0A
+mid_grey = #5E5E5E
+light_grey = #E9E9E9
+
+gutter = 10px
+thin_gutter = gutter / 2
+
+*
+  box-sizing: border-box
+
+html, body, #main, #console
+  height: 100%
+
+#main
+  margin: 0
+  width: 100%
+
+#editor, #viewer
+  float: left
+  width: 50%
+  height: 100%
+
+.swing-window
+  border: 1px solid dark_grey
+  display: inline-block
+  background: light_grey
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35)
+  min-width: 100px
+  min-height: 100px
+  // XXX: jQuery UI Draggable uses relative positioning, but Resizable uses
+  // absolute. Absolute is needed even before a resize, to allow programmatic
+  // positioning of windows from the JVM.
+  position: absolute !important
+
+.title
+  font-weight: bold
+  background: mid_grey
+  padding: thin_gutter
+  text-align: center
+  display: block
+  border-bottom: 1px solid dark_grey
+  cursor: pointer
+  overflow: hidden
+  min-width: 80px
+
+#taskbar
+  width: 50%
+  padding: 3px
+  margin: 0
+  position: absolute
+  bottom: 0
+  background: dark_grey
+  list-style-type: none
+  border-top: 1px solid mid_grey
+
+#desktop
+  padding: gutter
+  height: 100%
+  position: relative
+
+.icon
+  float: left
+  margin-right: gutter
+  border: 1px solid mid_grey
+  width: 100px
+  padding: thin_gutter gutter
+  cursor: pointer
+  background: light_grey
+  overflow: hidden
+  font-weight: bold
+  color: dark_grey
+  text-align: center
+
+.close
+  float: right

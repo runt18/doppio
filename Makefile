@@ -16,6 +16,7 @@ COFFEEC  := $(shell npm bin)/coffee
 UGLIFYJS := $(shell npm bin)/uglifyjs
 DOCCO    := $(shell npm bin)/docco
 BOWER    := $(shell npm bin)/bower
+STYLUS   := $(shell npm bin)/stylus
 JAZZLIB  := $(BOOTCLASSPATH)/java/util/zip/DeflaterEngine.class
 JRE      := $(BOOTCLASSPATH)/java/lang/Object.class
 SED      := $(shell if command -v gsed >/dev/null; then echo "gsed"; else echo "sed"; fi;)
@@ -168,10 +169,13 @@ dev: dependencies build/dev build/dev/browser \
 	cp browser/core_viewer.html build/dev
 
 	browser/render.coffee swing > build/dev/swing.html
+
+	$(STYLUS) -o browser browser/stylus/swing.styl
 	rsync browser/demo.css browser/swing.css build/dev/browser/
 
-
 	cd build/dev; $(COFFEEC) $(DOPPIO_DIR)/tools/gen_dir_listings.coffee > browser/listings.json
+
+	rm browser/swing.css
 
 release-cli: $(CLI_SRCS:%.coffee=build/release/%.js) \
 	build/release/classes build/release/vendor doppio
