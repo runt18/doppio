@@ -361,7 +361,7 @@ commands =
     ] = opts
 
     jvm.dump_state = dump_state
-    jvm.set_classpath '/home/doppio/vendor/classes/', if classpath then classpath else './'
+    jvm.set_classpath "#{sys_path}/vendor/classes/", if classpath then classpath else './'
 
     class_name = args[0]
     class_args = args[1..]
