@@ -1,5 +1,3 @@
-arr_to_str = (a) -> (String.fromCharCode(c) for c in a).join('')
-
 keys =
     height: 'Ljava/awt/Component;height'
     width: 'Ljava/awt/Component;width'
@@ -8,19 +6,14 @@ keys =
 trapped_methods.java.awt.Container = [
     o('paint(Ljava/awt/Graphics;)V', (rs, _this, graphics) ->
         {Frame, Label} = require('./swing')
-        {fields} = _this
-        console.log(_this)
 
-        title_arr = fields['Ljava/awt/Frame;title'].fields[keys.value].array
-        title_str = arr_to_str(title_arr)
+        title_str = _this.get_field(rs, 'Ljava/awt/Frame;title').jvm2js_str()
 
         size =
-            height: fields[keys.height]
-            width:  fields[keys.width]
+            height: _this.get_field(rs, keys.height)
+            width:  _this.get_field(rs, keys.width)
 
-        children = fields['Ljava/awt/Container;component'].fields['Ljava/util/ArrayList;elementData'].array
-
-        console.log(children)
+        children = _this.get_field(rs, 'Ljava/awt/Container;component').get_field(rs, 'Ljava/util/ArrayList;elementData').array
 
         f = new Frame(title_str, size, {top: 0, left: 0})
         components = [f]
@@ -29,11 +22,10 @@ trapped_methods.java.awt.Container = [
             console.log(component)
             switch component.cls.this_class
                 when 'Ljava/awt/Label;'
-                    value_arr = component.fields['Ljava/awt/Label;text'].fields[keys.value].array
-                    value = arr_to_str(value_arr)
+                    value = component.get_field(rs, 'Ljava/awt/Label;text').jvm2js_str()
 
-                    height = component.fields[keys.height]
-                    width = component.fields[keys.width]
+                    height = component.get_field(rs, keys.height)
+                    width = component.get_field(rs, keys.width)
 
                     components.push(new Label(f, value, height, width))
 
