@@ -251,6 +251,9 @@ tools/preload: release-cli
 		echo "Not regenerating tools/preload because you told me so"; \
 	fi
 
+vendor/java_home/lib/fontconfig.properties: vendor/fontconfig.properties
+	cp $< $@
+
 ################################################################################
 # BUILD DIRECTORY TARGETS
 ################################################################################
@@ -264,10 +267,10 @@ $(foreach TARGET,$(BUILD_TARGETS),$(subst %,$(TARGET),$(BUILD_FOLDERS))):
 
 build/release/about.html build/benchmark/about.html: browser/_about.md
 
-build/dev/%.html: browser/%.mustache browser/_navbar.mustache
+build/dev/%.html: browser/%.mustache browser/_navbar.mustache vendor/java_home/lib/fontconfig.properties
 	$(COFFEEC) browser/render.coffee $* > $@
 
-build/release/%.html build/benchmark/%.html: browser/%.mustache browser/_navbar.mustache
+build/release/%.html build/benchmark/%.html: browser/%.mustache browser/_navbar.mustache vendor/java_home/lib/fontconfig.properties
 	$(COFFEEC) browser/render.coffee --release $* > $@
 
 build/%/favicon.ico: browser/favicon.ico
