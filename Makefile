@@ -170,7 +170,7 @@ dev: dependencies build/dev build/dev/browser \
 
 	browser/render.coffee swing > build/dev/swing.html
 
-	$(STYLUS) -o build/dev/browser browser/style.styl browser/stylus/swing.styl browser/demo.styl
+	$(STYLUS) -o build/dev/browser browser/stylus/*
 
 	cd build/dev; $(COFFEEC) $(DOPPIO_DIR)/tools/gen_dir_listings.coffee > browser/listings.json
 
