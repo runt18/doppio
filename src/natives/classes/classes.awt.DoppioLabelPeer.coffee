@@ -14,14 +14,15 @@ native_methods.classes.awt.DoppioLabelPeer = [
         width = _this.get_field(rs, keys.width)
         parent = _this.get_field(rs, keys.parent).domPeer
 
-        swing.components.push(new swing.Label(parent, value, height, width))
+        _this.domPeer = new swing.Label(parent, value, height, width)
+        # swing.components.push()
     )
 
     o('getPreferredWidth()I', (rs, _this) ->
-        return 18
+        return _this.domPeer.width()
     )
 
     o('getPreferredHeight()I', (rs, _this) ->
-        return 42
+        return _this.domPeer.height()
     )
 ]
