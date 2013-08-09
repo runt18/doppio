@@ -5,6 +5,13 @@ import java.awt.peer.FramePeer;
 
 public class DoppioFramePeer extends DoppioWindowPeer implements FramePeer {
 
+    public DoppioFramePeer(){
+        super();
+        createDOMElement();
+    }
+
+    private native void createDOMElement();
+
     @Override
     public void setTitle(String s) {
         //To change body of implemented methods use File | Settings | File Templates.
