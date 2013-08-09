@@ -5,7 +5,7 @@ window.swing or= {
   containers: {}
 }
 
-# Store a hash Underscore template functions used to render new Swing Components
+# Store a hash of Underscore template functions used to render new Swing Components
 # to the DOM, precompiled for performance.
 $(->
   swing.templates = {}
