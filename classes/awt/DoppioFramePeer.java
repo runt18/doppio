@@ -5,8 +5,11 @@ import java.awt.peer.FramePeer;
 
 public class DoppioFramePeer extends DoppioWindowPeer implements FramePeer {
 
-    public DoppioFramePeer(){
+    private Frame frame;
+
+    public DoppioFramePeer(Frame frame){
         super();
+        this.frame = frame;
         createDOMElement();
     }
 

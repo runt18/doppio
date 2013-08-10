@@ -34,7 +34,7 @@ public class DoppioToolkit extends Toolkit {
 
     @Override
     protected LabelPeer createLabel(Label label) throws HeadlessException {
-        return new DoppioLabelPeer();
+        return new DoppioLabelPeer(label);
     }
 
     @Override
@@ -69,7 +69,7 @@ public class DoppioToolkit extends Toolkit {
 
     @Override
     protected FramePeer createFrame(Frame frame) throws HeadlessException {
-        return new DoppioFramePeer();
+        return new DoppioFramePeer(frame);
     }
 
     @Override

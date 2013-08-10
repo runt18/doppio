@@ -3,11 +3,15 @@ package classes.awt;
 import java.awt.peer.LabelPeer;
 import java.awt.Toolkit;
 import java.awt.Dimension;
+import java.awt.Label;
 
 public class DoppioLabelPeer extends DoppioComponentPeer implements LabelPeer {
 
-    public DoppioLabelPeer(){
+    private Label label;
+
+    public DoppioLabelPeer(Label label){
         super();
+        this.label = label;
         createDOMElement();
     }
 

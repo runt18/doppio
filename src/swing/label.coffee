@@ -18,14 +18,14 @@ class swing.Label
   set_font: ->
     @parent.ctx.font = "#{@font_size}px sans-serif"
 
-  width: ->
+  calc_width: ->
     @set_font()
     {width} = @parent.ctx.measureText(@value)
     return width
 
-  height: -> @font_size
+  calc_height: -> @font_size
 
-  size: -> {
-    width: @width()
-    height: @height()
+  calc_size: -> {
+    width: @calc_width()
+    height: @calc_height()
   }
